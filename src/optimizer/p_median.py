@@ -477,7 +477,18 @@ def _coz_ilp(
     status = pulp.LpStatus[prob.status]
     cb(f"ILP status: {status} | time: {time.time()-t0:.1f}s")
 
-    if prob.status != 1:   # 1=Optimal
+    # CBC sometimes stops on time limit having found a feasible integer
+    # solution but without proving optimality. In that case prob.status is
+    # NotSolved (0) but PuLP's sol_status is LpSolutionIntegerFeasible (2).
+    # Previously we threw that solution away and fell back to K-Medoids;
+    # CBC's best-found integer solution is almost always at least as good
+    # as a fresh K-Medoids run on the same problem, so we now keep it.
+    # Defensive `getattr` — older PuLP without sol_status falls through to
+    # the existing fallback path (same behaviour as before).
+    sol_status = getattr(prob, "sol_status", None)
+    ilp_feasible_only = prob.status == 0 and sol_status == 2
+
+    if prob.status != 1 and not ilp_feasible_only:
         # PuLP status kodları: 1=Optimal, 0=NotSolved, -1=Infeasible,
         # -2=Unbounded, -3=Undefined. Time-limit aşımında bazen 0 dönebiliyor.
         # Kullanıcının "neden K-Medoids'e düştüm?" sorusuna net cevap üretelim.
@@ -490,7 +501,7 @@ def _coz_ilp(
             )
         elif prob.status == 0:
             sebep = (
-                f"ILP did not find an optimal solution within the "
+                f"ILP did not find any feasible solution within the "
                 f"{time_limit_sn}s time limit (problem too large or hard). "
                 f"K-Medoids will produce a fast approximate solution."
             )
@@ -512,6 +523,17 @@ def _coz_ilp(
         result.fallback_nedeni = sebep
         result.ilp_status = status
         return result
+
+    if ilp_feasible_only:
+        # Best-found integer solution will be extracted below; mark the
+        # status so downstream UI/report can tell it's a feasible-but-not-
+        # proven-optimal CBC result (not a K-Medoids fallback).
+        cb(
+            f"ILP stopped at time limit ({time_limit_sn}s) with a feasible "
+            f"integer solution (sol_status=IntegerFeasible). Keeping CBC's "
+            f"best-found solution instead of restarting with K-Medoids."
+        )
+        status = "Feasible (time limit)"
 
     # ── Sonuçları çıkar ───────────────────────────────────────────────────────
     acik = [j for j in range(n_alan) if pulp.value(y[j]) > 0.5]
