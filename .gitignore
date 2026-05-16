@@ -1,0 +1,62 @@
+# ── Python ────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# ── Sanal ortam ───────────────────────────────────────────────────────────
+venv/
+.venv/
+env/
+ENV/
+
+# ── IDE / editör ──────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+
+# ── Claude Code ayarları ─────────────────────────────────────────────────
+.claude/settings.local.json
+
+# ── Streamlit ─────────────────────────────────────────────────────────────
+# Yerel/deploy secrets (token, API key vb.) ASLA repo'ya girmemeli.
+# NOT: proje şu an hiç secret okumuyor (Overpass anonim, TÜİK CSV
+# yüklenirken kullanıcı seçimi); bu kural ileride API entegrasyonu
+# eklendiğinde devreye girecek bir korkuluktur.
+.streamlit/secrets.toml
+
+# ── Uygulama çıktıları ────────────────────────────────────────────────────
+# OSMnx / Overpass yanıt cache'i (yeniden indirilebilir, büyük)
+cache/
+# Yürüme graph cache'i (GraphML, ilçe başına 50-300 MB)
+cache/graphs/
+data/graphs/
+# Streamlit'ten üretilen Excel / analiz çıktıları (kullanıcı-spesifik)
+output/
+# Uygulama logları
+logs/
+# Build/release artefaktları (build_release.py tarafından üretilir)
+dist/
+
+# ── Yedek / geçici ────────────────────────────────────────────────────────
+# Neighborhood Sync sayfasının ürettiği eski-dosya yedekleri
+*.geojson.bak.*
+*.bak
+
+# ── OS özel ───────────────────────────────────────────────────────────────
+*.log
+*.tmp
+
+# ── İSTİSNALAR (committedlanması gerekenler) ─────────────────────────────
+# data/samples/ — hocaya gösterim için pre-bundled örnek çıktılar
+# (ana .gitignore output/ ve cache/ engelliyor; data/ tracked)
+!data/samples/
+!data/samples/**

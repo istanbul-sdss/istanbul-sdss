@@ -1,0 +1,44 @@
+# ─────────────────────────────────────────────────────────────────────────────
+# Istanbul Spatial Decision Support System — Python dependencies
+# ─────────────────────────────────────────────────────────────────────────────
+# Install:  pip install -r requirements.txt
+# Python:   3.10+
+#
+# Versiyon stratejisi (P3.2):
+#   • Alt sınır = test edilmiş minimum (osmnx 1.x↔2.x dual-support kodu var,
+#     bu yüzden osmnx >=1.9 kalıyor).
+#   • Üst sınır = bir sonraki MAJOR sürüm (test edilmemiş major bump'ı engeller).
+#   • Dev/test bağımlılıkları için: requirements-dev.txt
+# ─────────────────────────────────────────────────────────────────────────────
+
+# ── Core data stack ──────────────────────────────────────────────────────────
+pandas>=2.0.0,<3.0
+numpy>=1.26.0,<3.0
+scipy>=1.11.0,<2.0
+scikit-learn>=1.3.0,<2.0
+
+# ── Geospatial ───────────────────────────────────────────────────────────────
+geopandas>=0.14.0,<2.0
+shapely>=2.0.0,<3.0
+osmnx>=1.9.0,<3.0     # 1.x ve 2.x dual-support kodu mevcut (osm_service.py)
+pyproj>=3.6.0,<4.0
+
+# ── I/O ──────────────────────────────────────────────────────────────────────
+openpyxl>=3.1.0,<4.0
+requests>=2.31.0,<3.0
+osm2geojson>=0.2.0,<1.0   # Overpass JSON → GeoJSON (Overpass Turbo "Export" eşdeğeri)
+
+# ── Fuzzy name matching (name-lookup module) ─────────────────────────────────
+rapidfuzz>=3.0.0,<4.0
+
+# ── Web UI (Streamlit + maps) ────────────────────────────────────────────────
+streamlit>=1.32.0,<2.0
+streamlit-folium>=0.20.0,<1.0
+folium>=0.15.0,<1.0
+
+# ── Visualization ────────────────────────────────────────────────────────────
+plotly>=5.18.0,<7.0
+
+# ── Optimization / graph (earthquake-assembly module) ────────────────────────
+networkx>=3.0,<4.0
+pulp>=2.7.0,<4.0

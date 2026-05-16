@@ -1,0 +1,35 @@
+# .pre-commit-config.yaml
+#
+# Kurulum (sadece bir kez):
+#   pip install -r requirements-dev.txt
+#   pre-commit install
+#
+# Manuel çalıştırma:
+#   pre-commit run --all-files
+#
+# Hook'lar her `git commit` öncesi otomatik çalışır.
+
+repos:
+  # Ruff lint (ve auto-fix) — config: pyproject.toml [tool.ruff]
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      - id: ruff
+        args: [--fix]
+      # Ruff'un kendi formatter'ı (black uyumlu). Henüz mevcut kod
+      # bütünüyle reformat edilmedi; ayrı bir refactor turu sonrasında
+      # bu hook aktive edilebilir.
+      # - id: ruff-format
+
+  # Basit guardrails: dosya sonu newline, satır sonu temizliği, büyük dosya.
+  - repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v5.0.0
+    hooks:
+      - id: trailing-whitespace
+        exclude: '\.md$'   # markdown'da iki-boşluk-satır-sonu anlam taşır
+      - id: end-of-file-fixer
+      - id: check-yaml
+      - id: check-toml
+      - id: check-merge-conflict
+      - id: check-added-large-files
+        args: ['--maxkb=5000']   # cache/ ve output/ zaten gitignore'da

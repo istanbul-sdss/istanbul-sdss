@@ -1,0 +1,82 @@
+# pyproject.toml — Lint/format konfigürasyonu.
+#
+# Bu dosya proje paketleme için DEĞİL (setup.py/sade requirements modeli
+# devam ediyor); yalnızca ruff/black/mypy gibi araçların standart
+# yapılandırma noktası. Pytest config ayrıdır (pytest.ini).
+
+[tool.ruff]
+# Hedef: 3.10 (minimum desteklenen). Modern syntax izinleri 3.10-uyumlu.
+target-version = "py310"
+line-length = 100
+
+# Hariç tutulanlar — auto-generated / 3rd party kod taranmaz.
+extend-exclude = [
+    "venv",
+    "cache",
+    "output",
+    "dist",
+    "logs",
+    "data",
+    "__pycache__",
+    ".pytest_cache",
+]
+
+[tool.ruff.lint]
+# Mevcut kod tabanı uzun süredir kullanımda; baseline temiz başlamak için
+# yalnızca yüksek‑sinyal kuralları açıyoruz. İlerleyen turlarda
+# kademeli olarak genişletilebilir (pyupgrade, naming, vb.).
+#
+#   E, W   pycodestyle (PEP 8 hataları)
+#   F      pyflakes (unused imports, undefined names — gerçek bug avı)
+#   I      isort (import sıralama)
+#   B      flake8-bugbear (yaygın bug pattern'leri — örn. mutable default)
+#   UP     pyupgrade (eski syntax → modern)
+#   C4     comprehensions (gereksiz list→set vb.)
+#   SIM    flake8-simplify (kod sadeleştirme önerileri)
+select = ["E", "W", "F", "I", "B", "UP", "C4", "SIM"]
+
+# Mevcut kodda kabul edilen istisnalar.
+#   E501 satır uzunluğu   : Türkçe yorumlar + komentar yoğunluğu nedeniyle
+#                           tek tek düzeltmektense ignore. Yeni kodda kısa tutulur.
+#   E701, E702 kompakt    : `if x: do_y` ve `a;b` kasıtlı kullanılıyor
+#                           (özellikle tag_rules.py config bloklarında).
+#   E741 ambiguous var    : `l` gibi tek harf isimler kasıtlı kullanılıyor.
+#   B008 mutable default  : dataclass default_factory pattern false positive.
+#   B905 zip strict       : Mevcut zip çağrıları eşit-uzunluk varsayımı taşıyor;
+#                           riskli değil. Yeni kodda strict=True önerilir.
+#   C408 dict() literal   : `dict(a=1)` keyword-argümanlı yazım okunabilir
+#                           bulunduğu için kasıtlı korunuyor.
+#   SIM108 if/else→ternary: okunabilirlik tartışmalı; manuel karar bırakılır.
+#   SIM102 nested if→and  : domain mantığını flatten etmesi okumayı zorlaştırabilir.
+ignore = [
+    "E501",
+    "E701",
+    "E702",
+    "E741",
+    "B008",
+    "B905",
+    "C408",
+    "SIM108",
+    "SIM102",
+]
+
+[tool.ruff.lint.per-file-ignores]
+# Test dosyalarında bazı kurallar gevşek:
+#   F401 unused import: fixture'lar dolaylı kullanılabilir
+#   E402 module-level import not at top: sys.path patch öncesi
+"tests/*" = ["F401", "E402"]
+"conftest.py" = ["E402"]
+# Streamlit sayfaları sys.path.insert ile köke açılıyor → E402 normal
+"pages/*.py" = ["E402"]
+"Spatial_Data_Collection_Tool.py" = ["E402"]
+"Optimization_Tool.py" = ["E402"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["src", "components"]
+
+[tool.ruff.format]
+# Ruff'un kendi formatter'ı (black ile uyumlu). Henüz mevcut koda
+# uygulanmadı; bir sonraki turda apply edilebilir.
+quote-style = "double"
+indent-style = "space"
+line-ending = "auto"

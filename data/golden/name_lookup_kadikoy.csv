@@ -1,0 +1,26 @@
+input_name,input_neighborhood,expected_status,expected_osm_id,expected_category,notes
+Şifa Eczanesi,Caferağa,Matched,<TODO>,amenity=pharmacy,Eczane temel senaryo
+Aile Eczanesi,Caferağa,Matched,<TODO>,amenity=pharmacy,Yaygın isim — mahalle hint kritik
+Aile Eczanesi,Fenerbahçe,Matched,<TODO>,amenity=pharmacy,Aynı isim farklı mahalle (row-preserving)
+Sıhhiye Eczanesi,Osmanağa,Matched,<TODO>,amenity=pharmacy,Mahalle önek prefix testi
+Bilinmeyen Bir Eczane,Caferağa,Not found,,amenity=pharmacy,False positive testi (gerçekte yok)
+Moda İlkokulu,Caferağa,Matched,<TODO>,amenity=school,Okul + place stopword (Moda) sınama
+Kadıköy Anadolu Lisesi,Osmanağa,Matched,<TODO>,amenity=school,İlçe adı önekiyle birlikte
+Bostancı İlköğretim Okulu,Bostancı,Matched,<TODO>,amenity=school,İÖO/İlköğretim normalizasyon
+Şükran Karabelli İlkokulu,Kozyatağı,Matched,<TODO>,amenity=school,Place stopword Kozyatağı sızıntısı
+Moda Parkı,Caferağa,Matched,<TODO>,leisure=park,Park - jenerik isim + mahalle ipucu
+Hürriyet Parkı,Suadiye,Matched,<TODO>,leisure=park,Park ortak ad
+Park,Caferağa,Ambiguous,,leisure=park,Çok jenerik — Ambiguous beklenir
+Yeldeğirmeni Camii,Rasimpaşa,Matched,<TODO>,amenity=place_of_worship,Cami - Camii/Cami varyantı
+Kadıköy Süreyya Operası,Osmanağa,Matched,<TODO>,amenity=theatre,Tek aday — kesin eşleşme
+Kalamış Marina,Fenerbahçe,Matched,<TODO>,leisure=marina,Marina - leisure
+Acıbadem Hastanesi,Acıbadem,Matched,<TODO>,amenity=hospital,Hastane chain
+Kadıköy ASM,Caferağa,Matched,<TODO>,amenity=clinic,ASM = Aile Sağlığı Merkezi kısaltması
+Türkan Saylan Kültür Merkezi,Caferağa,Matched,<TODO>,amenity=community_centre,Kültür merkezi - tam ad
+İSMEK,Caferağa,Possible match,,amenity=school,Tek tag yetersiz — Possible
+Bizim Market,Fenerbahçe,Matched,<TODO>,shop=convenience,Market chain
+ŞOK,Caferağa,Matched,<TODO>,shop=supermarket,Market chain - kısaltma
+Migros,Suadiye,Matched,<TODO>,shop=supermarket,Market chain - büyük
+Olmayan Bir Yer,,Not found,,,Boş mahalle hint - hiç eşleşme beklenmez
+,Caferağa,Not found,,,Boş input ad - filtrelenmeli
+nan,Caferağa,Not found,,,Literal nan string - filtrelenmeli

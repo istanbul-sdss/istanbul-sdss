@@ -1,0 +1,47 @@
+# Istanbul Spatial Decision Support System — Streamlit konfigürasyonu
+#
+# Hem yerel geliştirme hem dağıtım için makul varsayılanlar.
+# Üretim ortamında ortam değişkenleri ile override edilebilir.
+
+[server]
+# Geliştirici diskten kaydederken sayfa otomatik yeniden başlatmasın —
+# veri çekim akışları yarıda kesilmesin.
+runOnSave = false
+
+# Büyük GeoJSON / Excel yüklemeleri için 50 MB limiti — Streamlit
+# varsayılanı (200 MB) yerine düşük tutuldu; örnek Kadıköy çıktısı 5 MB
+# bandında, en büyük ilçeler (Esenyurt/Bağcılar) 30-40 MB. 50 MB makul
+# güvenlik tamponu sağlıyor.
+maxUploadSize = 50
+
+# Headless mod CI smoke testleri ve container deploy için zorunlu.
+headless = true
+
+[browser]
+# Telemetry kapat — kullanım verisi Streamlit'e gönderilmesin.
+gatherUsageStats = false
+
+[client]
+# A4 düzeltmesi: sağ üstteki "Deploy" + "..." (settings) butonlarını
+# son kullanıcıdan gizle. Streamlit Cloud bağlamında bu butonlar
+# son kullanıcı için yanıltıcı (uygulamayı "deploy" eylemiyle karıştırır).
+# Geliştirici lokal modda dahi "viewer" yeterli; gerekirse `developer`
+# yapılabilir.
+toolbarMode = "viewer"
+
+[theme]
+# components/styles.py'deki design tokens ile uyumlu.
+base = "light"
+primaryColor = "#0F2A44"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F8FAFC"
+textColor = "#0F172A"
+font = "sans serif"
+
+[runner]
+# Streamlit 1.35+: rerun davranışını agresif fragment çalıştırma yerine
+# tutucu yap — büyük GDF'li sayfalar (Optimization_Tool) için stabilite.
+fastReruns = false
+
+[logger]
+level = "info"
