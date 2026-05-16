@@ -8,6 +8,11 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+# Coverage artefaktları (pytest-cov)
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
 
 # ── Sanal ortam ───────────────────────────────────────────────────────────
 venv/
