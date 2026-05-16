@@ -552,26 +552,30 @@ if run_btn and selections:
         # P2.4: durum kutusu rengi failure state'e göre seçilir.
         if all_failed:
             status_ph.markdown(
-                f'<div style="background:#FEE2E2;color:#991B1B;padding:12px 16px;'
-                f'border-radius:10px;font-weight:500">'
-                f'❌ Failed — 0 records, all {len(selections)} categories errored '
-                f'({elapsed:.1f}s)</div>',
+                cards.status_banner(
+                    f"Failed — 0 records, all {len(selections)} categories errored "
+                    f"({elapsed:.1f}s)",
+                    tone="error",
+                ),
                 unsafe_allow_html=True,
             )
         elif error_count > 0:
             status_ph.markdown(
-                f'<div style="background:#FEF3C7;color:#92400E;padding:12px 16px;'
-                f'border-radius:10px;font-weight:500">'
-                f'⚠️ Partial success — {total:,} records, {len(nonempty)}/{len(selections)} '
-                f'categories OK, {error_count} failed ({elapsed:.1f}s)</div>',
+                cards.status_banner(
+                    f"Partial success — {total:,} records, "
+                    f"{len(nonempty)}/{len(selections)} categories OK, "
+                    f"{error_count} failed ({elapsed:.1f}s)",
+                    tone="warning",
+                ),
                 unsafe_allow_html=True,
             )
         else:
             status_ph.markdown(
-                f'<div style="background:#D1FAE5;color:#065F46;padding:12px 16px;'
-                f'border-radius:10px;font-weight:500">'
-                f'✅ Completed — {total:,} records, {len(nonempty)} categories '
-                f'({elapsed:.1f}s)</div>',
+                cards.status_banner(
+                    f"Completed — {total:,} records, {len(nonempty)} categories "
+                    f"({elapsed:.1f}s)",
+                    tone="success",
+                ),
                 unsafe_allow_html=True,
             )
 

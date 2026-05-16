@@ -523,13 +523,14 @@ if run_btn and input_df is not None and name_col is not None:
             }
             n_total = len(mresult.df)
             status_ph.markdown(
-                f'<div style="background:#D1FAE5;color:#065F46;padding:12px 16px;'
-                f'border-radius:10px;font-weight:500">'
-                f'✅ Completed — {mresult.matched_count}/{n_total} matched · '
-                f'{mresult.tag_match_count} tag-aligned · '
-                f'{mresult.tag_mismatch_count} tag mismatch · '
-                f'{mresult.not_found_count} not found '
-                f'({elapsed:.1f}s)</div>',
+                cards.status_banner(
+                    f"Completed — {mresult.matched_count}/{n_total} matched · "
+                    f"{mresult.tag_match_count} tag-aligned · "
+                    f"{mresult.tag_mismatch_count} tag mismatch · "
+                    f"{mresult.not_found_count} not found "
+                    f"({elapsed:.1f}s)",
+                    tone="success",
+                ),
                 unsafe_allow_html=True,
             )
         else:
@@ -565,11 +566,12 @@ if run_btn and input_df is not None and name_col is not None:
                 "elapsed":        elapsed,
             }
             status_ph.markdown(
-                f'<div style="background:#D1FAE5;color:#065F46;padding:12px 16px;'
-                f'border-radius:10px;font-weight:500">'
-                f'✅ Completed — {result.tier1_count + result.tier2_count}/'
-                f'{len(result.df)} matched · {result.not_found_count} not found '
-                f'({elapsed:.1f}s)</div>',
+                cards.status_banner(
+                    f"Completed — {result.tier1_count + result.tier2_count}/"
+                    f"{len(result.df)} matched · {result.not_found_count} not found "
+                    f"({elapsed:.1f}s)",
+                    tone="success",
+                ),
                 unsafe_allow_html=True,
             )
 

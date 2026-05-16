@@ -218,6 +218,73 @@ def render_badge(text: str, tone: Tone = "neutral") -> None:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# STATUS BANNER
+# ─────────────────────────────────────────────────────────────────────────────
+BannerTone = Literal["success", "warning", "error", "info"]
+
+# Tone → (background, foreground) renk çiftleri. Tailwind-uyumlu pastel arka plan +
+# yoğun foreground (~7:1 kontrast). Excel exporter ve translations modülündeki
+# renk seçimleriyle senkron — UI/Excel arası tutarlı semantic palette.
+_BANNER_COLORS: dict[str, tuple[str, str]] = {
+    "success": ("#D1FAE5", "#065F46"),
+    "warning": ("#FEF3C7", "#92400E"),
+    "error":   ("#FEE2E2", "#991B1B"),
+    "info":    ("#DBEAFE", "#1E40AF"),
+}
+
+# Tone → varsayılan icon. Caller `icon=""` ile bastırabilir veya kendi emoji'sini
+# `icon="🚀"` ile geçebilir; metin içinde manuel prefix yerine bu yolu tercih edin.
+_BANNER_DEFAULT_ICON: dict[str, str] = {
+    "success": "✅",
+    "warning": "⚠️",
+    "error":   "❌",
+    "info":    "ℹ️",
+}
+
+
+def status_banner(
+    text: str,
+    tone: BannerTone = "info",
+    *,
+    icon: str | None = None,
+) -> str:
+    """
+    Return an HTML banner string suitable for `st.markdown(..., unsafe_allow_html=True)`
+    or `placeholder.markdown(...)` (status_ph pattern).
+
+    `text` is html-escaped — safe to pass user-derived strings, counts, file
+    names. If you need HTML inside the banner, render it yourself; this helper
+    optimises for the dominant "plain message + emoji" case.
+
+    `icon=None` → tone-specific default (✅/⚠️/❌/ℹ️). Pass `icon=""` to suppress.
+
+    Returns HTML; mirrors `badge()` pattern. Use `render_status_banner()` to
+    render directly into the main panel; for `status_ph.markdown(...)` keep using
+    the returned string.
+    """
+    bg, fg = _BANNER_COLORS.get(tone, _BANNER_COLORS["info"])
+    glyph = _BANNER_DEFAULT_ICON.get(tone, "") if icon is None else icon
+    # icon defansif olarak escape edilir — emoji etkilenmez ama "<" gibi sembol
+    # injection'ı engellenir.
+    prefix = f"{_esc(glyph)} " if glyph else ""
+    return (
+        f'<div style="background:{bg};color:{fg};padding:12px 16px;'
+        f'border-radius:10px;font-weight:500">'
+        f'{prefix}{_esc(text)}</div>'
+    )
+
+
+def render_status_banner(
+    text: str,
+    tone: BannerTone = "info",
+    *,
+    icon: str | None = None,
+) -> None:
+    """Convenience: render banner directly via st.markdown."""
+    st.markdown(status_banner(text, tone, icon=icon), unsafe_allow_html=True)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # STEPPER
 # ─────────────────────────────────────────────────────────────────────────────
 def stepper(steps: list[str], current: int = 0) -> None:
