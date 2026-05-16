@@ -15,9 +15,30 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import sys
 import warnings
+from logging.handlers import RotatingFileHandler
 from pathlib import Path
+
+# Log rotasyonu varsayılanları. 10 MB × 3 backup = en fazla 40 MB disk taahhüdü.
+# Önceki davranış (sınırsız FileHandler) logs/app.log dosyasının zamanla GB
+# seviyesine çıkmasına yol açabiliyordu; rotasyon bu sızıntıyı kapatır.
+# Env override: LOG_MAX_BYTES, LOG_BACKUP_COUNT.
+_DEFAULT_MAX_BYTES = 10 * 1024 * 1024  # 10 MB
+_DEFAULT_BACKUP_COUNT = 3
+
+
+def _resolve_level(name: str | None, default: int) -> int:
+    """
+    LOG_LEVEL env değerini logging seviyesine çevir.
+    Geçersiz/boş değerde sessizce default'a düş — yanlış env değeri kullanıcının
+    uygulamasını çökertmesin.
+    """
+    if not name:
+        return default
+    level = logging.getLevelName(name.strip().upper())
+    return level if isinstance(level, int) else default
 
 # ── Üçüncü-parti uyumsuzluk gürültüsünü bastır (H6) ──────────────────────────
 # pyproj 3.7.x + numpy 2.x + geopandas 1.1.x: tek-noktalı `to_crs` çağrısında
@@ -79,7 +100,11 @@ def get_logger(name: str) -> logging.Logger:
     if logger.handlers:
         return logger
 
+    # Logger seviyesi her zaman DEBUG; handler'lar kendi seviyelerini filtreler.
+    # Konsol LOG_LEVEL env'ine göre kısılabilir (default INFO), dosya tam detayı
+    # tutar (debug/postmortem analizleri için).
     logger.setLevel(logging.DEBUG)
+    console_level = _resolve_level(os.getenv("LOG_LEVEL"), logging.INFO)
 
     fmt = logging.Formatter(
         "%(asctime)s | %(levelname)-8s | %(name)-30s | %(message)s",
@@ -88,15 +113,22 @@ def get_logger(name: str) -> logging.Logger:
 
     # Konsol handler — sys.stdout zaten utf-8 wrapper (yukarıda ayarlandı)
     ch = logging.StreamHandler(sys.stdout)
-    ch.setLevel(logging.INFO)
+    ch.setLevel(console_level)
     ch.setFormatter(fmt)
     logger.addHandler(ch)
 
-    # Dosya handler
+    # Dosya handler — RotatingFileHandler ile sınırsız büyüme engellenir.
     try:
         log_dir = Path(__file__).parent.parent / "logs"
         log_dir.mkdir(exist_ok=True)
-        fh = logging.FileHandler(log_dir / "app.log", encoding="utf-8")
+        max_bytes = int(os.getenv("LOG_MAX_BYTES", str(_DEFAULT_MAX_BYTES)))
+        backup_count = int(os.getenv("LOG_BACKUP_COUNT", str(_DEFAULT_BACKUP_COUNT)))
+        fh = RotatingFileHandler(
+            log_dir / "app.log",
+            maxBytes=max_bytes,
+            backupCount=backup_count,
+            encoding="utf-8",
+        )
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(fmt)
         logger.addHandler(fh)
