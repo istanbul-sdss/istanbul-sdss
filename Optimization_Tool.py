@@ -214,15 +214,15 @@ with st.sidebar.expander("🔄 Reset session"):
     # OD matrisini + sonucu siler. Yanlışlıkla tek tıklamayla
     # tetiklenmesin diye onay checkbox + ikincil buton.
     st.caption(
-        "Tüm yüklü veriyi (binalar, toplanma alanları, OD matrisi, "
-        "sonuç) ve geçici yükleme dosyalarını siler."
+        "Clears all loaded data (buildings, assembly areas, OD matrix, "
+        "results) and temporary upload files."
     )
     _confirm_reset = st.checkbox(
-        "Reset etmek istediğimi onaylıyorum",
+        "I confirm I want to reset the session",
         key="opt_confirm_reset",
     )
     if st.button(
-        "🗑 Reset session — onayla",
+        "🗑 Reset session — confirm",
         disabled=not _confirm_reset,
         width="stretch",
         key="opt_btn_reset_confirmed",
@@ -299,8 +299,8 @@ with st.container(border=True):
                 width="stretch",
                 key="opt_dl_data_template",
                 help=(
-                    "Üç sheet (Buildings + Assembly + README), 1 örnek "
-                    "satır + alan açıklamaları. Header renkli + autofilter."
+                    "Three sheets (Buildings + Assembly + README), 1 example "
+                    "row + field descriptions. Coloured header + autofilter."
                 ),
             )
         with dl_c2:
@@ -312,9 +312,9 @@ with st.container(border=True):
                 width="stretch",
                 key="opt_dl_tuik_template",
                 help=(
-                    "Uniform per-building modu için: mahalle_adi + nufus "
-                    "kolonlu Excel. 5 örnek Kadıköy mahallesi; kendi "
-                    "ilçenize göre güncelleyin."
+                    "For Uniform per-building mode: Excel with mahalle_adi + "
+                    "nufus columns. 5 example Kadıköy neighborhoods; update "
+                    "for your own district."
                 ),
             )
     # ─────────────────────────────────────────────────────────────────────
@@ -347,14 +347,14 @@ with st.container(border=True):
         key="opt_pop_method",
         label_visibility="collapsed",
         help=(
-            "**Auto:** Verinizde footprint kolonu varsa footprint-based, "
-            "yoksa uniform per-building kullanılır.\n\n"
-            "**Footprint-based:** Bina nüfusu ≈ footprint × kat × 0.025 "
-            "(TÜİK 2023 katsayısı). Footprint ve kat sayısı kolonları "
-            "gerekli.\n\n"
-            "**Uniform per-building:** Bina nüfusu = mahalle nüfusu / "
-            "mahalledeki bina sayısı. Footprint gerekmez; TÜİK mahalle "
-            "nüfus dosyası şart."
+            "**Auto:** Uses footprint-based if your data has a footprint "
+            "column; otherwise uniform per-building.\n\n"
+            "**Footprint-based:** Building population ≈ footprint × levels "
+            "× 0.025 (TÜİK 2023 coefficient). Footprint and levels columns "
+            "are required.\n\n"
+            "**Uniform per-building:** Building population = neighborhood "
+            "population / number of buildings in the neighborhood. No "
+            "footprint needed; a TÜİK neighborhood population file is required."
         ),
     )
     if pop_method_label.startswith("📐"):
@@ -371,8 +371,8 @@ with st.container(border=True):
     needs_tuik = pop_method_choice == POP_METHOD_UNIFORM
     if needs_tuik:
         st.info(
-            "ℹ Uniform per-building yöntemi seçildi — TÜİK mahalle nüfus "
-            "dosyası yükleyin (CSV veya Excel)."
+            "ℹ Uniform per-building method selected — upload a TÜİK "
+            "neighborhood population file (CSV or Excel)."
         )
         tuik_file = st.file_uploader(
             "TÜİK neighborhood population file (CSV/Excel)",
@@ -568,10 +568,10 @@ if _have("opt_buildings"):
                 f" (+{len(uniq)-5} more)" if len(uniq) > 5 else ""
             )
         st.warning(
-            f"⚠️ **{n_dropped:,} bina, mahallesi TÜİK dosyasında "
-            f"bulunamadığı için optimizasyondan düşürüldü.** "
-            f"Kayıp mahalleler: {sample_mahalleler}. "
-            f"TÜİK dosyasını tamamlayıp yeniden yükleyebilirsiniz."
+            f"⚠️ **{n_dropped:,} buildings dropped from the optimization "
+            f"because their neighborhood is missing from the TÜİK file.** "
+            f"Missing neighborhoods: {sample_mahalleler}. "
+            f"Add the missing rows to the TÜİK file and re-upload."
         )
 
     # Uniform mode audit: mahalle bazlı dağıtımı şeffaf göster — hocaların
@@ -584,11 +584,12 @@ if _have("opt_buildings"):
             expanded=False,
         ):
             st.caption(
-                "Her satır bir mahalleyi temsil eder. "
-                "**bina_basi = tuik_nufus / bina_sayisi** — bu mahallenin "
-                "her binasına aynı ağırlık atanır. Mahalleler arası "
-                "farklı bina_basi değerleri ilçe-genel ortalamasının "
-                "değil, mahalle bazlı dağıtımın uygulandığını gösterir."
+                "Each row is one neighborhood. "
+                "**bina_basi = tuik_nufus / bina_sayisi** — every building "
+                "in that neighborhood gets the same weight. Different "
+                "bina_basi values across neighborhoods are evidence that "
+                "per-neighborhood distribution is used, not a single "
+                "district-wide average."
             )
             # Sıralama: bina_basi azalan (en yoğun ilk)
             audit_sorted = uniform_audit.sort_values(
@@ -607,10 +608,10 @@ if _have("opt_buildings"):
                 bp_max = float(valid["bina_basi"].max())
                 bp_mean = float(valid["bina_basi"].mean())
                 st.caption(
-                    f"📊 Bina başına nüfus aralığı: "
-                    f"**{bp_min:.1f} – {bp_max:.1f}** (ortalama {bp_mean:.1f}). "
-                    f"Bu fark, her mahallenin kendi nüfus yoğunluğunun "
-                    f"korunduğunu gösterir."
+                    f"📊 Population per building range: "
+                    f"**{bp_min:.1f} – {bp_max:.1f}** (mean {bp_mean:.1f}). "
+                    f"This spread shows that each neighborhood's own "
+                    f"population density is preserved."
                 )
 
     # P2.6: konut-dışı bina varsayım uyarısı.
@@ -822,8 +823,8 @@ if _have("opt_buildings"):
             index=_default_idx,
             key="opt_district_pick",
             help=(
-                "39 İstanbul ilçesinden seçin. Listede olmayan bir bölgeyi "
-                "denemek için 'Other (custom)' seçeneğini kullanın."
+                "Pick one of Istanbul's 39 districts. Use 'Other (custom)' "
+                "to try an area that isn't in the list."
             ),
         )
 
@@ -834,8 +835,8 @@ if _have("opt_buildings"):
                 placeholder="e.g. Kadıköy, İstanbul, Türkiye",
                 key="opt_district_inp",
                 help=(
-                    "Tipografik hata riski sizdedir. OSMnx Nominatim ile "
-                    "geocode eder; ad bulunamazsa graf indirme başarısız olur."
+                    "Typos are on you. OSMnx geocodes via Nominatim; if the "
+                    "name isn't resolvable the graph download will fail."
                 ),
             )
         elif district_pick == "— Select —":
@@ -858,13 +859,14 @@ if _have("opt_buildings"):
             horizontal=True,
             key="opt_transport_mode",
             help=(
-                "**Walking:** AFAD acil toplanma standardı — yaya hızı "
-                "varsayımı (4.8 km/h). Resmi karar destek modu.\n\n"
-                "**Driving:** Karşılaştırmalı analiz — araç hızı (30 km/h "
-                "şehir-içi tipik). AFAD pratiğinin aksine deprem sonrası "
-                "araç kullanımının pratik olmadığını unutmayın; bu mod "
-                "yalnızca 'eğer araç erişimi olsaydı...' senaryosunu "
-                "değerlendirmek için."
+                "**Walking:** AFAD emergency assembly standard — walking "
+                "speed assumption (4.8 km/h). The official decision-support "
+                "mode.\n\n"
+                "**Driving:** Comparative analysis — vehicle speed (30 km/h, "
+                "typical city centre). Remember that, contrary to AFAD "
+                "practice, driving is not practical right after an "
+                "earthquake; this mode is only for evaluating "
+                "'what if vehicle access were available?' scenarios."
             ),
         )
         is_drive = transport_label.startswith("🚗")
@@ -888,14 +890,15 @@ if _have("opt_buildings"):
                 step=speed_step,
                 key=f"opt_travel_speed_{mode}",
                 help=(
-                    "Yetişkin yaya hızı. Varsayılan 4.8 km/h (AFAD / "
-                    "uluslararası karar destek pratiği). Yaşlı/çocuk "
-                    "ağırlıklı mahalle için 3.5-4.0 düşürülebilir; genç "
-                    "nüfus için 5.5+ artırılabilir."
+                    "Adult walking speed. Default 4.8 km/h (AFAD / "
+                    "international decision-support practice). Lower to "
+                    "3.5-4.0 for neighborhoods skewed toward elderly/"
+                    "children; raise to 5.5+ for younger populations."
                     if not is_drive else
-                    "Şehir-içi araç hızı. Varsayılan 30 km/h trafiği yansıtır; "
-                    "boş otoyolda 50+, yoğun saatte 15-20'ye düşebilir. Bu "
-                    "değer graf cache'ini invalidate etmez."
+                    "City-centre vehicle speed. Default 30 km/h reflects "
+                    "typical traffic; 50+ on empty highways, 15-20 in heavy "
+                    "congestion. Changing this does not invalidate the "
+                    "graph cache."
                 ),
             )
         with c2:
@@ -903,23 +906,22 @@ if _have("opt_buildings"):
                 "Force re-download graph",
                 value=False,
                 help=(
-                    "Cached street network'ü bypass eder. Her mode'un AYRI "
-                    "cache'i vardır (walking ↔ driving birbirini etkilemez)."
+                    "Bypasses the cached street network. Each mode has its "
+                    "OWN cache (walking ↔ driving don't affect each other)."
                 ),
             )
 
         if is_drive:
             st.warning(
-                "⚠️ **Comparative analysis mode** — AFAD acil toplanma "
-                "planlaması yaya senaryosuna dayanır. Bu modda hesaplanan "
-                "KPI'lar **karşılaştırma amaçlıdır**; gerçek atama kararları "
-                "için Walking modunu temel alın."
+                "⚠️ **Comparative analysis mode** — AFAD emergency assembly "
+                "planning assumes a walking scenario. KPIs computed in this "
+                "mode are **for comparison only**; base actual assignment "
+                "decisions on Walking mode."
             )
         else:
             st.caption(
-                "ℹ Tüm bina-toplanma alanı çiftleri için yürüyüş süresi "
-                "hesaplanır (cutoff yok). Optimizasyon adımında hiçbir "
-                "çift dışlanmaz."
+                "ℹ Walking time is computed for every building–assembly area "
+                "pair (no cutoff). The optimization step excludes no pairs."
             )
 
         if st.button(
@@ -1076,11 +1078,11 @@ if _have("opt_buildings"):
                     f"speed ({_old_speed:.2f} → {_current_sig[2]:.2f} km/h)"
                 )
             st.warning(
-                "⚠ **OD matrix is stale.** Parametre değişti: "
+                "⚠ **OD matrix is stale.** Parameters changed: "
                 + ", ".join(_changed_bits)
-                + ". Aşağıdaki KPI'lar eski hesabı yansıtıyor — "
-                "**Compute OD matrix**'i tekrar çalıştırmadan optimize "
-                "etmeyin."
+                + ". The KPIs below reflect the old computation — "
+                "do not run optimization without re-running "
+                "**Compute OD matrix**."
             )
 
         od = st.session_state.opt_od_matrix
@@ -1177,9 +1179,9 @@ if _have("opt_buildings"):
                 key="opt_dl_od_xlsx",
                 width="stretch",
                 help=(
-                    "Excel: Sheet 1 = matrisin kendisi (satır=bina, kolon=alan, "
-                    "değer=dakika), 'Unreachable' = +∞. Sheet 2 = parametre özeti "
-                    "(transport mode + speed dahil)."
+                    "Excel: Sheet 1 = the matrix itself (row=building, "
+                    "col=area, value=minutes), 'Unreachable' = +∞. "
+                    "Sheet 2 = parameter summary (incl. transport mode + speed)."
                 ),
             )
 
@@ -1204,26 +1206,27 @@ if _have("opt_od_matrix"):
         # ── Solver radio'sunu ana panele çıkar (Madde 1.5) ───────────────
         # Akademik terminoloji: Exact (ILP) / Heuristic (K-Medoids) / Auto.
         # Tezdeki "exact vs heuristic" karşılaştırmasını UI ile hizalar.
-        st.markdown("**Solver / Çözüm yöntemi**")
+        st.markdown("**Solver method**")
         solver_label = st.radio(
             "Solver method",
             [
                 f"🤖 Auto — Exact if ≤{ILP_THRESHOLD:,} buildings, else Heuristic",
-                "🎯 Exact (ILP, PuLP/CBC) — matematiksel optimum",
-                "⚡ Heuristic (K-Medoids) — hızlı, yaklaşık",
+                "🎯 Exact (ILP, PuLP/CBC) — mathematical optimum",
+                "⚡ Heuristic (K-Medoids) — fast, approximate",
             ],
             index=0,
             horizontal=True,
             key="opt_solver_choice",
             label_visibility="collapsed",
             help=(
-                "**Auto:** Bina sayısına göre otomatik (ILP eşik altında, "
-                "K-Medoids üstünde). `min_p95` hedefi her zaman Heuristic.\n\n"
-                "**Exact (ILP):** PuLP/CBC ile matematiksel optimum. Küçük "
-                "veri setlerinde tercih edilir. Büyük problemlerde zaman "
-                "aşımına gidebilir.\n\n"
+                "**Auto:** Picks by building count (ILP below the threshold, "
+                "K-Medoids above). The `min_p95` objective always uses "
+                "Heuristic.\n\n"
+                "**Exact (ILP):** Mathematical optimum via PuLP/CBC. "
+                "Preferred for small data sets. Large problems may hit the "
+                "time limit.\n\n"
                 "**Heuristic (K-Medoids):** Greedy init + 1-swap local "
-                "search. Hızlı, ~%1-5 optimaliteden sapma. Büyük veri için."
+                "search. Fast, ~1-5% optimality gap. Use for large data."
             ),
         )
         if "Auto" in solver_label:
@@ -1280,13 +1283,14 @@ if _have("opt_od_matrix"):
                 value=False,
                 disabled=(not area_available),
                 help=(
-                    "Toplanma alanı m² bilgisinden AFAD standardı (1.5 m²/kişi) "
-                    "ile kapasite türetilir; aşan atamalar yasaklanır.\n\n"
-                    "**Bu seçenek pasif** çünkü yüklenen toplanma alanları için "
-                    "geçerli m² verisi yok — kapasite hesaplanamaz."
+                    "Capacity is derived from assembly area m² via the AFAD "
+                    "standard (1.5 m²/person); assignments exceeding it are "
+                    "forbidden.\n\n"
+                    "**This option is disabled** because the loaded assembly "
+                    "areas have no valid m² data — capacity cannot be computed."
                     if not area_available else
-                    "AFAD standardı (1.5 m²/kişi) ile her alan kapasitesini "
-                    "aşan atamalar yasaklanır."
+                    "Uses the AFAD standard (1.5 m²/person) to forbid "
+                    "assignments that exceed each area's capacity."
                 ),
             )
 
@@ -1312,9 +1316,9 @@ if _have("opt_od_matrix"):
         # Conflict: Exact (ILP) + min_p95 (p95 doğrusal değil)
         if solver_mode == "ilp" and amac == "min_p95":
             st.error(
-                "⚠ Exact (ILP) çözücü, P95 hedefi ile kullanılamaz "
-                "(P95 doğrusal değildir). Lütfen Solver'ı 'Auto' veya "
-                "'Heuristic (K-Medoids)' yapın ya da Objective'i değiştirin."
+                "⚠ The Exact (ILP) solver cannot be used with the P95 "
+                "objective (P95 is non-linear). Set Solver to 'Auto' or "
+                "'Heuristic (K-Medoids)', or change the Objective."
             )
 
         # ── Gelişmiş: ILP detayları (sadece ILP veya Auto modunda anlamlı) ──
@@ -1323,7 +1327,7 @@ if _have("opt_od_matrix"):
                 "ILP time limit (seconds)",
                 min_value=10, max_value=3600, value=int(ILP_TIME_LIMIT_SN), step=30,
                 key="opt_time_limit_sn",
-                help="Yalnızca Exact (ILP) modunda anlamlı. Büyük problemlerde artırın.",
+                help="Only meaningful in Exact (ILP) mode. Increase for large problems.",
                 disabled=(solver_mode == "kmedoids"),
             )
             allow_fallback = st.checkbox(
@@ -1331,10 +1335,10 @@ if _have("opt_od_matrix"):
                 value=True,
                 key="opt_allow_fallback",
                 help=(
-                    "**On (default):** ILP infeasible / timeout olursa "
-                    "K-Medoids yaklaşık çözümü dener.\n\n"
-                    "**Off:** ILP başarısızlığı hata fırlatır — akademik "
-                    "karşılaştırma / kök-neden analizi için yararlı."
+                    "**On (default):** if ILP is infeasible or times out, "
+                    "fall back to K-Medoids approximate.\n\n"
+                    "**Off:** ILP failure raises — useful for academic "
+                    "comparison / root-cause analysis."
                 ),
                 disabled=(solver_mode == "kmedoids"),
             )
@@ -1532,10 +1536,10 @@ if _have("opt_result"):
             _diff.append(f"solver ({_res_sig[3]} → {_current_res_sig[3]})")
         if _diff:
             st.warning(
-                "⚠ **Result is stale.** Parametre değişti: "
+                "⚠ **Result is stale.** Parameters changed: "
                 + ", ".join(_diff)
-                + ". Aşağıdaki KPI'lar **eski çözümü** yansıtıyor — "
-                "**Run optimization**'ı tekrar çalıştırmadan rapor üretmeyin."
+                + ". The KPIs below reflect the **old solution** — "
+                "do not produce reports without re-running **Run optimization**."
             )
 
     if result.amac == "min_max":
