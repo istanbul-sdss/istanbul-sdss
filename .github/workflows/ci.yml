@@ -67,12 +67,13 @@ jobs:
       - name: Run pytest + coverage
         # -p no:cacheprovider: CI'da .pytest_cache permission/checkout sorunları
         # çıkmasın. --strict-markers: bilinmeyen marker'ı sessizce yutmayalım.
-        # --cov: src/ + components/ kapsamı term-missing modunda; pages/ Streamlit
-        # entry'leri için ayrı AppTest smoke (Faz 1, B2) gelecek.
+        # --cov: src/ + components/ + pages/ kapsamı term-missing modunda;
+        # pages/ Streamlit entry'leri AppTest ile smoke render edilir
+        # (tests/test_pages_smoke.py + test_streamlit_smoke.py).
         # XML çıktısı: artifact upload + ileride Codecov entegrasyonu için.
         run: |
           python -m pytest tests/ -v --strict-markers -p no:cacheprovider \
-            --cov=src --cov=components \
+            --cov=src --cov=components --cov=pages \
             --cov-report=term-missing \
             --cov-report=xml:coverage.xml
 
