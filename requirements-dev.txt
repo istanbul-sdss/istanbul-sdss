@@ -6,6 +6,7 @@
 # Test runner
 pytest>=8.0,<10.0
 pytest-timeout>=2.3,<3.0   # bazı testlerde network/IO için süre koruması
+pytest-cov>=5.0,<7.0       # CI'da kapsama raporu; lokal addopts'a girmedi (gürültü)
 
 # Lint + format — pre-commit hook'larıyla aynı sürümler
 # Ruff hem lint hem format eder; black/flake8/isort tek araçta toplanır.

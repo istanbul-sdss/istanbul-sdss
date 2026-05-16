@@ -64,11 +64,25 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
 
-      - name: Run pytest
+      - name: Run pytest + coverage
         # -p no:cacheprovider: CI'da .pytest_cache permission/checkout sorunları
         # çıkmasın. --strict-markers: bilinmeyen marker'ı sessizce yutmayalım.
+        # --cov: src/ + components/ kapsamı term-missing modunda; pages/ Streamlit
+        # entry'leri için ayrı AppTest smoke (Faz 1, B2) gelecek.
+        # XML çıktısı: artifact upload + ileride Codecov entegrasyonu için.
         run: |
-          python -m pytest tests/ -v --strict-markers -p no:cacheprovider
+          python -m pytest tests/ -v --strict-markers -p no:cacheprovider \
+            --cov=src --cov=components \
+            --cov-report=term-missing \
+            --cov-report=xml:coverage.xml
+
+      - name: Upload coverage report
+        if: matrix.python-version == '3.11'
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml
+          path: coverage.xml
+          retention-days: 14
 
   smoke:
     name: Streamlit smoke import
