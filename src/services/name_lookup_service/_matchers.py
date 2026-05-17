@@ -1,31 +1,16 @@
 """
-src/services/name_lookup_service.py — Reverse / name-based OSM lookup.
+name_lookup_service._matchers — cascade + mixed-list match orchestration.
 
-Two-tier cascade:
-    Tier 1 (precision-first): Existing pipeline output for the chosen
-        (district, rule_code) — POIs OSM tags correctly for that
-        category. High signal-to-noise. Output mirrors the existing
-        pipeline schema. Tokenization uses category-specific stopwords.
+Owns the two public matcher entrypoints (`match_names` for single-mode
+cascade, `match_mixed_list` for mixed-mode auto-detect) plus the result
+dataclasses they produce (`NameLookupResult`, `MixedLookupResult`,
+`_ScoreBreakdown`) and the row-emitter helpers that mirror the pipeline
+schema.
 
-    Tier 2 (recall booster, opt-in): All named features inside the
-        district boundary, EXCLUDING those already matched in Tier 1.
-        Catches mistagged or category-less records (e.g. a pharmacy
-        registered as `building=yes` with name "Şifa Eczanesi").
-        Tokenization is LITE (generic stopwords only) on BOTH sides
-        because candidates aren't known to be of category X — applying
-        X's stopwords asymmetrically would produce false positives.
-
-    Tier 3: Inputs that no tier could match → "Not found".
-
-Scoring is `token_set_ratio × √jaccard`. The Jaccard term punishes
-asymmetric matches like {anka} vs {anka, sanat} that token_set_ratio
-otherwise scores 100; it leaves symmetric matches like {sifa} vs {sifa}
-(post stopword strip) untouched.
-
-Public entrypoints:
-    prepare_pools(...)   — fetch + tokenize once (cacheable from UI layer)
-    match_names(...)     — fast in-memory cascade against prepared pools
-    run_name_lookup(...) — convenience wrapper that does both
+Dependency direction: this is the top of the package's internal stack.
+It imports from `_scoring`, `_tag_compat`, and `_pools`; nothing under
+`name_lookup_service/*.py` imports from here. The `__init__.py`
+re-exports the public API of all sub-modules from here.
 """
 
 from __future__ import annotations
@@ -33,390 +18,54 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
-import geopandas as gpd
 import pandas as pd
 from rapidfuzz import fuzz
 
-from src.config.category_registry import CATEGORY_REGISTRY, get_subcategory_code
+from src.config.category_registry import CATEGORY_REGISTRY
 from src.config.name_lookup_rules import (
     detect_category,
     normalize_tr,
     tokenize_for_match,
     tokenize_lite,
 )
-from src.config.tag_rules import get_rule
 from src.logger import get_logger
-from src.pipelines.pipeline import run_pipeline
-from src.services.neighbourhood_loader import load_mahalleleri
-from src.services.osm_service import (
-    EMPTY_GDF,
-    fetch_boundary,
-    fetch_features_from_polygon,
+
+# Sub-module: pure scoring math + input cleaning.
+from ._scoring import (
+    AMBIGUITY_DELTA,
+    MIRROR_COLUMNS_TR,
+    _classify,
+    _extract_name_variants,
+    _is_empty_input,
+    _score,
+    _score_variants,
 )
-from src.services.spatial_service import (
-    add_footprint_area,
-    add_lat_lon_from_point,
-    assign_neighbourhoods,
-    ensure_wgs84,
+
+# Sub-module: OSM tag-compatibility evaluation + ranking + UI labels.
+from ._tag_compat import (
+    _check_tag_compat,
+    _COMPAT_RANK,
+    _TAG_MATCH_TR,
+    _TAG_SCORE_MAP,
+)
+
+# Sub-module: candidate dataclasses + pool builders + heavy prepare entries.
+# Re-exported through __init__ so external callers keep their existing
+# import paths.
+from ._pools import (
+    MIXED_DEFAULT_THRESHOLD,
+    TIER1_DEFAULT_THRESHOLD,
+    TIER2_DEFAULT_THRESHOLD,
+    PreparedPools,
+    UniversalPool,
+    _Candidate,
+    _KEEP_TAG_COLUMNS,
+    _UniversalCandidate,
+    prepare_pools,
+    prepare_universal_pool,
 )
 
 log = get_logger(__name__)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CONSTANTS
-# ─────────────────────────────────────────────────────────────────────────────
-TIER1_DEFAULT_THRESHOLD = 80   # POIs already tagged correctly — relaxed
-TIER2_DEFAULT_THRESHOLD = 85   # Wide named-feature pool — strict (false-pos guard)
-
-# Score window between best and 2nd-best below which we flag Ambiguous
-# — only triggers when ≥2 candidates clear the acceptance threshold.
-AMBIGUITY_DELTA = 5
-
-# Asymmetry-penalty exponent applied to Jaccard.
-# 0.0 = no penalty (raw token_set_ratio)
-# 0.5 = sqrt(jaccard) — moderate (default; calibrated against real data)
-# 1.0 = full Jaccard penalty
-JACCARD_EXPONENT = 0.5
-
-# Tier 1 / Tier 2 column expected to mirror pipeline output schema.
-MIRROR_COLUMNS_TR = [
-    "OSM Tipi", "OSM ID", "Ad",
-    "Kategori", "Alt Kategori", "Kategori (TR)", "Kural Kodu",
-    "Güven", "Eşleşme Nedeni",
-    "Enlem", "Boylam", "Mahalle", "Sınır Durumu",
-    "Tesis", "Sağlık Tipi", "Bina Tipi", "Dükkan", "Din",
-    "Alan (m²)", "Kat Sayısı",
-]
-
-# OSM tag columns consulted for alternate name forms when scoring candidates.
-# A POI registered with a formal name in the user's input list often appears
-# in OSM under a different field — bilingual (`name:tr`), colloquial
-# (`loc_name`), shorthand (`short_name`), or chain (`brand`/`operator`).
-# Including all of these as searchable token sources directly improves recall
-# without changing the matching algorithm.
-_ALT_NAME_COLUMNS = [
-    "name:tr", "name:en",
-    "alt_name", "loc_name", "official_name", "short_name",
-    "brand", "operator",
-]
-
-
-# Excel/CSV reader'larından gelen "boş hücre" senaryolarını tek noktada filtrele.
-# Hem `pd.isna(val)` (gerçek NaN) hem de literal "nan"/"none"/"null" string
-# (bazı reader'lar NaN'ı string'e çeviriyor) hem de boşluk-only girdiyi yutar.
-_EMPTY_INPUT_LITERALS = frozenset({"", "nan", "none", "null", "n/a", "na", "-", "—"})
-
-
-def _is_empty_input(value) -> bool:
-    """Bir arama girdisi olarak değerlendirilmemesi gereken değer mi?"""
-    if value is None:
-        return True
-    try:
-        if pd.isna(value):
-            return True
-    except (TypeError, ValueError):
-        pass
-    s = str(value).strip().lower()
-    return s in _EMPTY_INPUT_LITERALS
-
-
-def _extract_name_variants(row) -> list[str]:
-    """
-    Return all non-empty distinct name strings for a candidate row, in
-    preference order: primary `Ad` first, then `_ALT_NAME_COLUMNS`.
-
-    Dedup is by normalize_tr(value) so trivially-different writings
-    ("Şifa Eczanesi" vs "ŞİFA ECZANESİ") collapse to one variant.
-    Backward-compatible: rows lacking alt-name columns yield [primary].
-    """
-    raws: list[str] = []
-    seen: set[str] = set()
-
-    primary = row.get("Ad")
-    if primary is not None and not (isinstance(primary, float) and pd.isna(primary)):
-        s = str(primary).strip()
-        if s:
-            raws.append(s)
-            seen.add(normalize_tr(s))
-
-    for col in _ALT_NAME_COLUMNS:
-        v = row.get(col)
-        if v is None or (isinstance(v, float) and pd.isna(v)):
-            continue
-        s = str(v).strip()
-        if not s:
-            continue
-        norm = normalize_tr(s)
-        if not norm or norm in seen:
-            continue
-        seen.add(norm)
-        raws.append(s)
-    return raws
-
-
-@dataclass
-class _Candidate:
-    """A single OSM candidate row prepared for matching."""
-    tokens: set[str]       # primary (Ad) tokens — kept for backward compat
-    canonical: str         # joined sorted token string for primary
-    variants: list[tuple[set[str], str]]  # (tokens, canonical) for every name source
-    payload: dict          # column → value (already in pipeline schema)
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# SCORING
-# ─────────────────────────────────────────────────────────────────────────────
-def _score(
-    input_tokens: set[str],
-    cand_tokens: set[str],
-    input_canonical: str,
-    cand_canonical: str,
-) -> tuple[float, set[str]]:
-    """
-    Returns (score, common_tokens).
-
-    score = token_set_ratio(input_canonical, cand_canonical) × jaccard^α
-
-    The Jaccard penalty fixes a known false-positive pattern in
-    token_set_ratio: when one side's tokens are a strict subset of the
-    other's and the intersection equals the smaller side, the algorithm
-    scores 100. Real-world examples this used to mis-score:
-
-        {anka}            vs {anka, sanat}    → was 100, now 71 (Possible)
-        {acibadem, cadde} vs {cadde}          → was 100, now 71
-        {pak}             vs {pak, berber}    → was 100, now 58 (Not found)
-
-    Symmetric matches keep their score:
-        {sifa}            vs {sifa}           → 100 (unchanged)
-        {yildiz}          vs {yildiz}         → 100 (unchanged)
-    """
-    if not input_tokens or not cand_tokens:
-        return 0.0, set()
-    common = input_tokens & cand_tokens
-    union  = input_tokens | cand_tokens
-    if not common or not union:
-        return 0.0, set()
-    base = float(fuzz.token_set_ratio(input_canonical, cand_canonical))
-    jaccard = len(common) / len(union)
-    return base * (jaccard ** JACCARD_EXPONENT), common
-
-
-def _score_variants(
-    input_tokens: set[str],
-    input_canonical: str,
-    variants: list[tuple[set[str], str]],
-) -> tuple[float, set[str]]:
-    """
-    Score input against every name variant of a candidate; return the best.
-
-    Variants come from `name`, `name:tr`, `alt_name`, `loc_name`,
-    `official_name`, `short_name`, `brand`, `operator`. A POI's input form
-    in the user list often matches only one of these — taking the max
-    boosts recall without changing the matching algorithm.
-
-    Each variant is independently pre-filtered (cheap disjoint check) before
-    the expensive token_set_ratio call, mirroring `_best_matches` semantics.
-    """
-    best_score = 0.0
-    best_common: set[str] = set()
-    if not input_tokens or not variants:
-        return best_score, best_common
-    for cd_tokens, cd_canonical in variants:
-        if not cd_tokens:
-            continue
-        if input_tokens.isdisjoint(cd_tokens):
-            if not any(t in cd_canonical for t in input_tokens if len(t) >= 4):
-                continue
-        s, common = _score(input_tokens, cd_tokens, input_canonical, cd_canonical)
-        if s > best_score:
-            best_score = s
-            best_common = common
-    return best_score, best_common
-
-
-def _classify(
-    best: float,
-    runner_up: float,
-    threshold: float,
-    n_above_threshold: int,
-) -> str:
-    """
-    Match Status decision matrix:
-        best <= 0                                                    → Not found
-        best >= threshold AND n_above ≥ 2 AND gap < AMBIGUITY_DELTA  → Ambiguous
-        best >= threshold                                            → Matched
-        otherwise                                                    → Possible match
-
-    P4 fix: previously a single perfect match could be flagged Ambiguous
-    because the runner-up gap math triggered against zero. We now require
-    ≥2 candidates above threshold for Ambiguous, eliminating the
-    spurious flagging of clean single-winner rows.
-    """
-    if best <= 0:
-        return "Not found"
-    if best >= threshold:
-        if n_above_threshold >= 2 and (best - runner_up) < AMBIGUITY_DELTA:
-            return "Ambiguous"
-        return "Matched"
-    return "Possible match"
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# CANDIDATE BUILDERS (Tier 1: rule-aware, Tier 2: lite)
-# ─────────────────────────────────────────────────────────────────────────────
-def _build_tier1_candidates(df: pd.DataFrame, rule_code: str) -> list[_Candidate]:
-    if df.empty or "Ad" not in df.columns:
-        return []
-    cands: list[_Candidate] = []
-    for _, row in df.iterrows():
-        raw_variants = _extract_name_variants(row)
-        if not raw_variants:
-            continue
-        variants: list[tuple[set[str], str]] = []
-        for raw in raw_variants:
-            toks = set(tokenize_for_match(raw, rule_code))
-            if toks:
-                variants.append((toks, " ".join(sorted(toks))))
-        if not variants:
-            continue
-        primary_tokens, primary_canonical = variants[0]
-        cands.append(_Candidate(
-            tokens=primary_tokens,
-            canonical=primary_canonical,
-            variants=variants,
-            payload={c: row[c] for c in df.columns if c in row.index},
-        ))
-    return cands
-
-
-def _build_tier2_candidates(df: pd.DataFrame) -> list[_Candidate]:
-    """
-    Tier 2 uses LITE tokenization — generic stopwords only — applied
-    symmetrically on both sides so the Jaccard / set-ratio math stays
-    honest against arbitrary named features.
-    """
-    if df.empty or "Ad" not in df.columns:
-        return []
-    cands: list[_Candidate] = []
-    for _, row in df.iterrows():
-        raw_variants = _extract_name_variants(row)
-        if not raw_variants:
-            continue
-        variants: list[tuple[set[str], str]] = []
-        for raw in raw_variants:
-            toks = set(tokenize_lite(raw))
-            if toks:
-                variants.append((toks, " ".join(sorted(toks))))
-        if not variants:
-            continue
-        primary_tokens, primary_canonical = variants[0]
-        cands.append(_Candidate(
-            tokens=primary_tokens,
-            canonical=primary_canonical,
-            variants=variants,
-            payload={c: row[c] for c in df.columns if c in row.index},
-        ))
-    return cands
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# TIER 2 — fetch + enrich named features
-# ─────────────────────────────────────────────────────────────────────────────
-def _fetch_named_features(
-    boundary_gdf: gpd.GeoDataFrame,
-    progress_cb: Callable | None = None,
-) -> gpd.GeoDataFrame:
-    if boundary_gdf.empty:
-        return EMPTY_GDF.copy()
-    polygon = ensure_wgs84(boundary_gdf).geometry.iloc[0]
-    if progress_cb:
-        progress_cb("Tier 2: fetching all named OSM features...")
-    try:
-        gdf = fetch_features_from_polygon(polygon, tags={"name": True})
-    except Exception as exc:
-        log.warning(f"Tier 2 fetch failed: {exc}")
-        return EMPTY_GDF.copy()
-    if gdf.empty:
-        return EMPTY_GDF.copy()
-    if "rep_point" not in gdf.columns:
-        gdf = gdf.copy()
-        gdf["rep_point"] = gdf.geometry.representative_point()
-    return gdf
-
-
-def _enrich_tier2_features(
-    gdf: gpd.GeoDataFrame,
-    mahalleleri: gpd.GeoDataFrame | None,
-    rule_code: str,
-) -> pd.DataFrame:
-    """
-    Lift tier-2 GDF into the Turkish-named pipeline schema.
-    Confidence is forced to 'Belirsiz' (mistag candidates are by
-    definition not category-classified).
-    """
-    if gdf.empty:
-        return pd.DataFrame()
-
-    g = gdf.copy()
-    g = add_lat_lon_from_point(g, point_col="rep_point")
-
-    if mahalleleri is not None and not mahalleleri.empty:
-        g = assign_neighbourhoods(g, mahalleleri, point_col="rep_point")
-
-    # Real UTM area + point→polygon overlay fallback (see universal pool).
-    g = add_footprint_area(g)
-
-    if isinstance(g.index, pd.MultiIndex):
-        g = g.reset_index()
-        renames = {}
-        if "element_type" in g.columns: renames["element_type"] = "element"
-        if "osmid"        in g.columns: renames["osmid"]        = "id"
-        if renames:
-            g = g.rename(columns=renames)
-    else:
-        g = g.reset_index(drop=False)
-        if "osmid" in g.columns and "id" not in g.columns:
-            g = g.rename(columns={"osmid": "id"})
-        if "element" not in g.columns:
-            g["element"] = None
-
-    rule  = get_rule(rule_code)
-    label = rule.get("label_tr", rule_code)
-    cgroup = rule.get("category_group", "")
-    sub   = rule.get("subcategory", "")
-
-    elem_map = {"node": "Nokta", "way": "Yol/Alan", "relation": "İlişki"}
-
-    out = pd.DataFrame({
-        "OSM Tipi":      g.get("element", pd.Series([None]*len(g))).astype(str)
-                         .str.lower().map(lambda x: elem_map.get(x, x)),
-        "OSM ID":        g.get("id"),
-        "Ad":            g.get("name"),
-        "Kategori":      cgroup,
-        "Alt Kategori":  sub,
-        "Kategori (TR)": label,
-        "Kural Kodu":    rule_code,
-        "Güven":         "Belirsiz",
-        "Eşleşme Nedeni": "Ad eşleşmesi (mistag adayı)",
-        "Enlem":         g.get("latitude"),
-        "Boylam":        g.get("longitude"),
-        "Mahalle":       g.get("neighbourhood") if "neighbourhood" in g.columns else None,
-        "Sınır Durumu":  g.get("boundary_status") if "boundary_status" in g.columns else "ilçe_içi",
-        "Tesis":         g.get("amenity"),
-        "Sağlık Tipi":   g.get("healthcare"),
-        "Bina Tipi":     g.get("building"),
-        "Dükkan":        g.get("shop"),
-        "Alan (m²)":     pd.to_numeric(g["footprint_m2"], errors="coerce").round(1)
-                         if "footprint_m2" in g.columns else None,
-        "Alan Kaynağı":  g.get("area_source") if "area_source" in g.columns else "",
-    })
-    # Preserve alt-name OSM tag columns when present so candidate building
-    # can score against every name variant (name:tr, alt_name, loc_name…).
-    for col in _ALT_NAME_COLUMNS:
-        if col in g.columns:
-            out[col] = g[col]
-    return out
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -543,19 +192,10 @@ def _emit_row(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PUBLIC RESULT TYPES
+# PUBLIC RESULT TYPES (NameLookupResult/MixedLookupResult stay near the
+# matcher functions that produce them; PreparedPools/UniversalPool live in
+# _pools.py alongside their builders.)
 # ─────────────────────────────────────────────────────────────────────────────
-@dataclass
-class PreparedPools:
-    """Frozen pools of candidates plus the boundary/mahalle context."""
-    rule_code:        str
-    cat_key:          str
-    sub_key:          str
-    ilce:             str
-    tier1_candidates: list[_Candidate]
-    tier2_candidates: list[_Candidate]
-
-
 @dataclass
 class NameLookupResult:
     df:                pd.DataFrame
@@ -568,79 +208,8 @@ class NameLookupResult:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# PUBLIC ENTRYPOINTS
+# PUBLIC ENTRYPOINTS — match_names (single-mode cascade)
 # ─────────────────────────────────────────────────────────────────────────────
-def prepare_pools(
-    ilce: str,
-    cat_key: str,
-    sub_key: str,
-    *,
-    enable_tier2: bool = True,
-    progress_cb: Callable | None = None,
-) -> PreparedPools:
-    """
-    Heavy step — runs the existing pipeline (Tier 1) and optionally
-    fetches all named features in the boundary (Tier 2). Pure of input
-    names so the UI layer can cache it across multiple lookup runs.
-    """
-    def cb(msg: str) -> None:
-        log.info(msg)
-        if progress_cb:
-            progress_cb(msg)
-
-    # category_registry.get_subcategory_code raises ValueError on miss; the
-    # earlier `if rule_code is None` branch was unreachable. Re-raise with a
-    # local context so callers see "<cat>/<sub>" together rather than only
-    # the inner registry message.
-    try:
-        rule_code = get_subcategory_code(cat_key, sub_key)
-    except ValueError as ve:
-        raise ValueError(
-            f"Invalid category/subcategory: {cat_key}/{sub_key} ({ve})"
-        ) from ve
-
-    # ── Tier 1: existing pipeline ────────────────────────────────────────
-    cb(f"Tier 1: running pipeline for {ilce} / {get_rule(rule_code).get('label_tr', rule_code)}...")
-    pr = run_pipeline(
-        ilce=ilce,
-        secimler=[(cat_key, sub_key)],
-        progress_cb=progress_cb,
-    )
-    boundary    = pr["boundary"]
-    mahalleleri = pr["mahalleleri"]
-    t1_df = pd.DataFrame()
-    if rule_code in pr["results"]:
-        t1_df = pr["results"][rule_code].get("df", pd.DataFrame())
-
-    t1_cands = _build_tier1_candidates(t1_df, rule_code)
-    cb(f"Tier 1 pool: {len(t1_cands)} candidates")
-
-    # ── Tier 2 (optional) ────────────────────────────────────────────────
-    t2_cands: list[_Candidate] = []
-    if enable_tier2:
-        used_t1_ids = (
-            set(t1_df["OSM ID"].dropna().astype(str))
-            if "OSM ID" in t1_df.columns else set()
-        )
-        named_gdf = _fetch_named_features(boundary, progress_cb=progress_cb)
-        if not named_gdf.empty:
-            cb(f"Tier 2: {len(named_gdf)} raw named features, enriching with neighborhood/coordinates...")
-            t2_df = _enrich_tier2_features(named_gdf, mahalleleri, rule_code)
-            if not t2_df.empty and "OSM ID" in t2_df.columns:
-                t2_df = t2_df[~t2_df["OSM ID"].astype(str).isin(used_t1_ids)].copy()
-            t2_cands = _build_tier2_candidates(t2_df)
-        cb(f"Tier 2 pool: {len(t2_cands)} candidates (excluding Tier 1)")
-
-    return PreparedPools(
-        rule_code=rule_code,
-        cat_key=cat_key,
-        sub_key=sub_key,
-        ilce=ilce,
-        tier1_candidates=t1_cands,
-        tier2_candidates=t2_cands,
-    )
-
-
 def match_names(
     pools: PreparedPools,
     names: list[str],
@@ -822,49 +391,6 @@ def run_name_lookup(
 # pool ONCE, and returns coordinates + neighborhood + category metadata for
 # everything it can match.
 # ─────────────────────────────────────────────────────────────────────────────
-MIXED_DEFAULT_THRESHOLD = 80
-
-
-@dataclass
-class _UniversalCandidate:
-    """A named OSM feature retained with all category-relevant tag columns.
-
-    `lite_variants` carries the lite-tokenized form of every non-empty
-    name source (`Ad`, `name:tr`, `alt_name`, `loc_name`, `official_name`,
-    `short_name`, `brand`, `operator`). Scoring takes the max across
-    variants so a POI whose user-supplied label only matches `alt_name`
-    still surfaces. `raw_name_variants` is kept so rule-aware tokenization
-    (per-category stopwords) can be re-run lazily inside `_get_rule_view`.
-    """
-    lite_variants:     list[tuple[set[str], str]]
-    raw_name_variants: list[str]
-    payload:           dict
-
-    @property
-    def lite_tokens(self) -> set[str]:
-        return self.lite_variants[0][0] if self.lite_variants else set()
-
-    @property
-    def lite_canonical(self) -> str:
-        return self.lite_variants[0][1] if self.lite_variants else ""
-
-
-@dataclass
-class UniversalPool:
-    """All named features in a district plus boundary/mahalle context."""
-    ilce:        str
-    candidates:  list[_UniversalCandidate]
-    # Lazy per-rule token caches: rule_code → list (parallel to .candidates)
-    # where each entry is the list of (rule_tokens, canonical) variants for
-    # that candidate's name sources (Ad, name:tr, alt_name…). Filled on
-    # first detection of that rule.
-    rule_token_cache: dict[str, list[list[tuple[set[str], str]]]]
-    # Place-context stopwords: district + neighborhood names. These appear
-    # as prefixes in OSM POI names ("Kadıköy Ahmet Sani Gezici …" or
-    # "Kozyatağı Şükran Karabelli İlkokulu") and would otherwise create
-    # spurious token gaps between user input (which omits them) and OSM
-    # candidates. Computed once at pool prep time.
-    place_stopwords: set[str]
 
 
 @dataclass
@@ -878,283 +404,6 @@ class MixedLookupResult:
     candidate_pool_size:  int
     mahalle_filter_rows:  int = 0  # rows that supplied a mahalle hint
     mahalle_filter_empty: int = 0  # rows whose hinted mahalle had 0 candidates
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Universal-pool fetch: single Overpass call for name=*, full attributes
-# ─────────────────────────────────────────────────────────────────────────────
-# Keep these tag columns on each candidate — they drive the OSM-Category
-# inference and the tag-compatibility check.
-_KEEP_TAG_COLUMNS = [
-    "amenity", "building", "shop", "office", "leisure", "landuse",
-    "natural", "tourism", "historic", "religion", "denomination",
-    "healthcare", "public_transport", "railway", "highway",
-    "man_made", "emergency",
-]
-
-
-def _enrich_universal_features(
-    gdf: gpd.GeoDataFrame,
-    mahalleleri: gpd.GeoDataFrame | None,
-) -> pd.DataFrame:
-    """
-    Lift the raw name=* GDF into a uniform DataFrame, retaining tag
-    columns that drive category inference (vs. _enrich_tier2_features
-    which collapses to a single fixed schema).
-    """
-    if gdf.empty:
-        return pd.DataFrame()
-
-    g = gdf.copy()
-    g = add_lat_lon_from_point(g, point_col="rep_point")
-    if mahalleleri is not None and not mahalleleri.empty:
-        g = assign_neighbourhoods(g, mahalleleri, point_col="rep_point")
-
-    # Real UTM area for polygons; point→polygon overlay fallback uses the
-    # SAME fetch's polygons as the overlay source. OSM commonly carries a
-    # park as both a polygon (the actual geometry) AND a label Point (with
-    # the name); the helper joins the two so the label inherits the parent
-    # park's footprint. Output column: footprint_m2.
-    g = add_footprint_area(g)
-
-    if isinstance(g.index, pd.MultiIndex):
-        g = g.reset_index()
-        renames = {}
-        if "element_type" in g.columns: renames["element_type"] = "element"
-        if "osmid"        in g.columns: renames["osmid"]        = "id"
-        if renames:
-            g = g.rename(columns=renames)
-    else:
-        g = g.reset_index(drop=False)
-        if "osmid" in g.columns and "id" not in g.columns:
-            g = g.rename(columns={"osmid": "id"})
-        if "element" not in g.columns:
-            g["element"] = None
-
-    elem_map = {"node": "Nokta", "way": "Yol/Alan", "relation": "İlişki"}
-
-    base_cols = {
-        "OSM Tipi":     g.get("element", pd.Series([None]*len(g))).astype(str)
-                        .str.lower().map(lambda x: elem_map.get(x, x)),
-        "OSM ID":       g.get("id"),
-        "Ad":           g.get("name"),
-        "Enlem":        g.get("latitude"),
-        "Boylam":       g.get("longitude"),
-        "Mahalle":      g.get("neighbourhood") if "neighbourhood" in g.columns else None,
-        "Sınır Durumu": g.get("boundary_status") if "boundary_status" in g.columns else "ilçe_içi",
-        "Alan (m²)":    pd.to_numeric(g["footprint_m2"], errors="coerce").round(1)
-                        if "footprint_m2" in g.columns else None,
-        "Alan Kaynağı": g.get("area_source") if "area_source" in g.columns else "",
-    }
-    out = pd.DataFrame(base_cols)
-    # Preserve raw tag columns for downstream category inference & tag-compat.
-    for col in _KEEP_TAG_COLUMNS:
-        if col in g.columns:
-            out[col] = g[col]
-    # Preserve alt-name OSM tag columns when present so candidate building
-    # can score against every name variant (name:tr, alt_name, loc_name…).
-    for col in _ALT_NAME_COLUMNS:
-        if col in g.columns:
-            out[col] = g[col]
-    return out
-
-
-def _build_place_stopwords(ilce: str, mahalleleri: gpd.GeoDataFrame | None) -> set[str]:
-    """
-    Tokens that should be silently stripped during matching because they
-    are pure place context (district / neighborhood prefixes), not the
-    distinguishing element of a POI name.
-
-    Examples this fixes:
-        Input  "Şükran Karabelli İlkokulu"
-        OSM    "Kozyatağı Şükran Karabelli İlkokulu"
-        → Without place-stopwords: Jaccard penalty drops score to ~81.
-        → With   place-stopwords: tokens equalize, score → 100.
-    """
-    stops: set[str] = set()
-    # District itself
-    for tok in normalize_tr(ilce).split():
-        if len(tok) >= 2:
-            stops.add(tok)
-    # Each neighborhood name (split on whitespace; "Mahallesi" is generic noise)
-    if mahalleleri is not None and not mahalleleri.empty:
-        # neighbourhood_name is the canonical column produced by
-        # neighbourhood_loader; keep the older candidate names as a fallback
-        # for any custom GeoJSONs the project may pick up.
-        name_col = next(
-            (c for c in ["neighbourhood_name", "mahalle_adi", "mahalle",
-                         "name", "Ad", "Adı", "AD"]
-             if c in mahalleleri.columns),
-            None,
-        )
-        if name_col is not None:
-            for raw in mahalleleri[name_col].dropna().astype(str).tolist():
-                # Strip the universal "Mahallesi" token; keep the actual name
-                norm = normalize_tr(raw)
-                for tok in norm.split():
-                    if tok in {"mahallesi", "mahalle"}:
-                        continue
-                    if len(tok) >= 3:
-                        stops.add(tok)
-    return stops
-
-
-def prepare_universal_pool(
-    ilce: str,
-    *,
-    progress_cb: Callable | None = None,
-) -> UniversalPool:
-    """
-    Single Overpass fetch of every named feature in the district boundary.
-    Fast in-process; meant to be cached across UI runs.
-    """
-    def cb(msg: str) -> None:
-        log.info(msg)
-        if progress_cb:
-            progress_cb(msg)
-
-    cb(f"Universal pool: fetching {ilce} boundary...")
-    boundary = fetch_boundary(f"{ilce}, İstanbul, Türkiye")
-
-    cb(f"Universal pool: loading {ilce} neighborhoods...")
-    mahalleleri = load_mahalleleri(ilce)
-
-    cb("Universal pool: fetching all named OSM features (name=*)...")
-    polygon = ensure_wgs84(boundary).geometry.iloc[0]
-    try:
-        gdf = fetch_features_from_polygon(polygon, tags={"name": True})
-    except Exception as exc:
-        log.warning(f"Universal pool fetch failed: {exc}")
-        gdf = EMPTY_GDF.copy()
-
-    place_stopwords = _build_place_stopwords(
-        ilce, mahalleleri if not mahalleleri.empty else None
-    )
-    cb(f"Universal pool: marked {len(place_stopwords)} place-context tokens as stopwords")
-
-    cands: list[_UniversalCandidate] = []
-    if not gdf.empty:
-        if "rep_point" not in gdf.columns:
-            gdf = gdf.copy()
-            gdf["rep_point"] = gdf.geometry.representative_point()
-        cb(f"Universal pool: enriching {len(gdf)} raw records...")
-        df = _enrich_universal_features(
-            gdf, mahalleleri if not mahalleleri.empty else None
-        )
-        for _, row in df.iterrows():
-            raw_variants = _extract_name_variants(row)
-            if not raw_variants:
-                continue
-            # Lite tokens already strip GENERIC_STOPWORDS; subtract place
-            # stopwords here too so the lite path agrees with the rule view.
-            lite_variants: list[tuple[set[str], str]] = []
-            for raw in raw_variants:
-                tokens = set(tokenize_lite(raw)) - place_stopwords
-                if tokens:
-                    lite_variants.append((tokens, " ".join(sorted(tokens))))
-            if not lite_variants:
-                continue
-            cands.append(_UniversalCandidate(
-                lite_variants=lite_variants,
-                raw_name_variants=raw_variants,
-                payload={c: row[c] for c in df.columns if c in row.index},
-            ))
-    cb(f"Universal pool: {len(cands)} candidates ready")
-
-    return UniversalPool(
-        ilce=ilce,
-        candidates=cands,
-        rule_token_cache={},
-        place_stopwords=place_stopwords,
-    )
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Tag-compatibility check
-# ─────────────────────────────────────────────────────────────────────────────
-def _check_tag_compat(payload: dict, rule_code: str) -> str:
-    """
-    Compare candidate's OSM tag values against rule's strict_tags + support_tags.
-
-    `strict_tags` may be:
-      - dict {key: value | [values]}    — single AND'd requirement set
-      - list[dict]                      — OR'd alternatives (e.g. building_mosque)
-                                          where each dict is an AND'd requirement
-    `support_tags` is always a single dict.
-
-    Returns one of:
-        "match"      ✅  candidate satisfies any strict alternative
-        "support"    ⚠️  candidate has supporting (but not strict) tags
-        "mismatch"   ❌  candidate has at least one strict-tag KEY with a
-                         contradicting value AND none of the alternatives matched
-        "unknown"    —   no relevant tags present (most common for plain
-                         name-only OSM rows)
-    """
-    rule = get_rule(rule_code)
-    strict = rule.get("strict_tags") or {}
-    support = rule.get("support_tags") or {}
-
-    def _normalize_target(v) -> list[str]:
-        if isinstance(v, list):
-            return [str(x).lower() for x in v]
-        return [str(v).lower()]
-
-    def _cand_val(key: str) -> str | None:
-        v = payload.get(key)
-        if v is None or (isinstance(v, float) and pd.isna(v)):
-            return None
-        sv = str(v).strip().lower()
-        return None if (not sv or sv == "nan") else sv
-
-    def _evaluate_strict_alternative(alt: dict) -> tuple[bool, bool]:
-        """
-        Evaluate a single AND'd requirement set.
-        Returns (all_present_match, any_contradiction).
-        all_present_match = True iff every key present in candidate has a
-        matching value AND at least one key was actually present.
-        """
-        any_present = False
-        all_match = True
-        any_contradict = False
-        for key, expected in alt.items():
-            cv = _cand_val(key)
-            if cv is None:
-                all_match = False  # missing required key — incomplete match
-                continue
-            any_present = True
-            if cv not in _normalize_target(expected):
-                all_match = False
-                any_contradict = True
-        return (any_present and all_match), any_contradict
-
-    # Normalize strict to a list of alternatives
-    alternatives = strict if isinstance(strict, list) else [strict]
-    alternatives = [a for a in alternatives if a]  # drop empties
-
-    has_match = False
-    has_contradiction = False
-    for alt in alternatives:
-        m, c = _evaluate_strict_alternative(alt)
-        if m:
-            has_match = True
-            break
-        if c:
-            has_contradiction = True
-
-    if has_match:
-        return "match"
-    if has_contradiction:
-        return "mismatch"
-
-    # Support tags
-    for key, expected in (support or {}).items():
-        cv = _cand_val(key)
-        if cv is None:
-            continue
-        if cv in _normalize_target(expected):
-            return "support"
-
-    return "unknown"
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1249,10 +498,6 @@ def _get_rule_view(pool: UniversalPool, rule_code: str) -> list[list[tuple[set[s
     return view
 
 
-# Tag-compat ranking — used to break score ties (Fix 1).
-# Lower is better. A tag-aligned candidate at score 100 wins over an
-# unrelated 100 (e.g. neighborhood "Moda" vs park "Moda Parkı").
-_COMPAT_RANK = {"match": 0, "support": 1, "unknown": 2, "mismatch": 3}
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1294,12 +539,6 @@ def _mahalle_match(input_mh: str | None, cand_mh: str | None) -> bool:
 # ─────────────────────────────────────────────────────────────────────────────
 # Mixed-list matcher
 # ─────────────────────────────────────────────────────────────────────────────
-_TAG_MATCH_TR = {
-    "match":    "✅ Uyumlu",
-    "support":  "⚠️ Destekleyici",
-    "mismatch": "❌ Çelişkili",
-    "unknown":  "— (etiket yok)",
-}
 
 
 def match_mixed_list(
@@ -1647,15 +886,6 @@ class _ScoreBreakdown:
     explanation:     str            # human-readable "why" string
 
 
-# Tag uyum durumunu sayısallaştır — kullanıcıya "neden 87?" sorusunda
-# tag bileşeninin payını gösterir. Skor değil sıralama; mantıksal
-# sayıdır (compat_rank != bu skor).
-_TAG_SCORE_MAP = {
-    "match":    100.0,
-    "support":  70.0,
-    "unknown":  50.0,
-    "mismatch": 0.0,
-}
 
 
 def _compute_breakdown_from_variants(
