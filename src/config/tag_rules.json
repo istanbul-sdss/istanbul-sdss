@@ -1,0 +1,3001 @@
+{
+  "admin_neighbourhood": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "admin_boundaries",
+    "collect_unresolved": false,
+    "export_family": "admin",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Mahalle Sınırları",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "boundary": "administrative",
+        "admin_level": "8"
+      }
+    ],
+    "strict_tags": {
+      "boundary": "administrative",
+      "admin_level": "8"
+    },
+    "subcategory": "neighbourhood",
+    "support_tags": {}
+  },
+  "admin_district": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "admin_boundaries",
+    "collect_unresolved": false,
+    "export_family": "admin",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "İlçe Sınırları",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "boundary": "administrative",
+        "admin_level": "6"
+      }
+    ],
+    "strict_tags": {
+      "boundary": "administrative",
+      "admin_level": "6"
+    },
+    "subcategory": "district",
+    "support_tags": {}
+  },
+  "admin_province": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "admin_boundaries",
+    "collect_unresolved": false,
+    "export_family": "admin",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "İl Sınırları",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "boundary": "administrative",
+        "admin_level": "4"
+      }
+    ],
+    "strict_tags": {
+      "boundary": "administrative",
+      "admin_level": "4"
+    },
+    "subcategory": "province",
+    "support_tags": {}
+  },
+  "building_house": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Müstakil Ev",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "house"
+      },
+      {
+        "building": "detached"
+      }
+    ],
+    "strict_tags": {
+      "building": "house"
+    },
+    "subcategory": "house",
+    "support_tags": {}
+  },
+  "building_detached": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Müstakil (Detached)",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "detached"
+      }
+    ],
+    "strict_tags": {
+      "building": "detached"
+    },
+    "subcategory": "detached",
+    "support_tags": {}
+  },
+  "building_terrace": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "İkiz / Sıra Ev",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "terrace"
+      }
+    ],
+    "strict_tags": {
+      "building": "terrace"
+    },
+    "subcategory": "terrace",
+    "support_tags": {}
+  },
+  "building_apartments": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Apartman",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "apartments"
+      },
+      {
+        "building": "residential"
+      }
+    ],
+    "strict_tags": {
+      "building": "apartments"
+    },
+    "subcategory": "apartments",
+    "support_tags": {}
+  },
+  "building_residential": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Konut - Genel",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "residential"
+      },
+      {
+        "building": "house"
+      },
+      {
+        "building": "apartments"
+      },
+      {
+        "building": "detached"
+      },
+      {
+        "building": "terrace"
+      }
+    ],
+    "strict_tags": {
+      "building": "residential"
+    },
+    "subcategory": "residential",
+    "support_tags": {}
+  },
+  "building_commercial": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Ticari Genel",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "commercial"
+      },
+      {
+        "building": "retail"
+      },
+      {
+        "building": "office"
+      }
+    ],
+    "strict_tags": {
+      "building": "commercial"
+    },
+    "subcategory": "commercial",
+    "support_tags": {
+      "shop": true,
+      "office": true
+    }
+  },
+  "building_office": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Ofis Binası",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "office"
+      },
+      {
+        "office": true
+      }
+    ],
+    "strict_tags": {
+      "building": "office"
+    },
+    "subcategory": "office",
+    "support_tags": {
+      "office": true
+    }
+  },
+  "building_retail": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Alışveriş Merkezi / Retail",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "retail"
+      },
+      {
+        "building": "supermarket"
+      },
+      {
+        "amenity": "marketplace"
+      }
+    ],
+    "strict_tags": {
+      "building": "retail"
+    },
+    "subcategory": "retail",
+    "support_tags": {
+      "shop": true
+    }
+  },
+  "building_industrial": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Endüstriyel",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "industrial"
+      },
+      {
+        "landuse": "industrial"
+      }
+    ],
+    "strict_tags": {
+      "building": "industrial"
+    },
+    "subcategory": "industrial",
+    "support_tags": {}
+  },
+  "building_warehouse": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Depo",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "warehouse"
+      },
+      {
+        "building": "industrial"
+      }
+    ],
+    "strict_tags": {
+      "building": "warehouse"
+    },
+    "subcategory": "warehouse",
+    "support_tags": {}
+  },
+  "building_hospital": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Hastane Binası",
+    "name_patterns": [
+      "hastane",
+      "hospital",
+      "tıp merkezi",
+      "tip merkezi",
+      "medical"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "hospital"
+      },
+      {
+        "amenity": "hospital"
+      },
+      {
+        "healthcare": "hospital"
+      }
+    ],
+    "strict_tags": {
+      "building": "hospital"
+    },
+    "subcategory": "hospital",
+    "support_tags": {
+      "emergency": "yes"
+    }
+  },
+  "building_school": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Okul Binası",
+    "name_patterns": [
+      "okul",
+      "school",
+      "lise",
+      "ilkokul",
+      "ortaokul",
+      "kolej",
+      "koleji"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "school"
+      },
+      {
+        "amenity": "school"
+      }
+    ],
+    "strict_tags": {
+      "building": "school"
+    },
+    "subcategory": "school",
+    "support_tags": {
+      "isced:level": true,
+      "operator": true
+    }
+  },
+  "building_university": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Üniversite Binası",
+    "name_patterns": [
+      "üniversite",
+      "universit"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "university"
+      },
+      {
+        "amenity": "university"
+      }
+    ],
+    "strict_tags": {
+      "building": "university"
+    },
+    "subcategory": "university",
+    "support_tags": {
+      "operator": true
+    }
+  },
+  "building_mosque": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Cami",
+    "name_patterns": [
+      "cami",
+      "camii",
+      "mescit",
+      "mosque"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "mosque"
+      },
+      {
+        "amenity": "place_of_worship",
+        "religion": "muslim"
+      }
+    ],
+    "strict_tags": [
+      {
+        "building": "mosque"
+      },
+      {
+        "amenity": "place_of_worship",
+        "religion": "muslim"
+      }
+    ],
+    "subcategory": "mosque",
+    "support_tags": {
+      "religion": "muslim",
+      "building": "mosque"
+    }
+  },
+  "building_church": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Kilise",
+    "name_patterns": [
+      "church",
+      "kilise"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "church"
+      },
+      {
+        "amenity": "place_of_worship",
+        "religion": "christian"
+      }
+    ],
+    "strict_tags": [
+      {
+        "building": "church"
+      },
+      {
+        "amenity": "place_of_worship",
+        "religion": "christian"
+      }
+    ],
+    "subcategory": "church",
+    "support_tags": {
+      "religion": "christian",
+      "building": "church"
+    }
+  },
+  "building_synagogue": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Sinagog",
+    "name_patterns": [
+      "synagogue",
+      "sinagog"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "synagogue"
+      },
+      {
+        "amenity": "place_of_worship",
+        "religion": "jewish"
+      }
+    ],
+    "strict_tags": [
+      {
+        "building": "synagogue"
+      },
+      {
+        "amenity": "place_of_worship",
+        "religion": "jewish"
+      }
+    ],
+    "subcategory": "synagogue",
+    "support_tags": {
+      "religion": "jewish",
+      "building": "synagogue"
+    }
+  },
+  "building_religious": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Dini Yapı - Genel",
+    "name_patterns": [
+      "cami",
+      "camii",
+      "mescit",
+      "mosque",
+      "church",
+      "kilise",
+      "synagogue",
+      "sinagog"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "place_of_worship"
+      },
+      {
+        "building": "mosque"
+      },
+      {
+        "building": "church"
+      },
+      {
+        "building": "synagogue"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "place_of_worship"
+    },
+    "subcategory": "religious",
+    "support_tags": {
+      "amenity": "place_of_worship"
+    }
+  },
+  "building_public": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Kamu Binası",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "public"
+      },
+      {
+        "amenity": "public_building"
+      },
+      {
+        "amenity": "townhall"
+      }
+    ],
+    "strict_tags": {
+      "building": "public"
+    },
+    "subcategory": "public",
+    "support_tags": {
+      "operator": true
+    }
+  },
+  "building_civic": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Belediye / Civic",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "civic"
+      },
+      {
+        "amenity": "townhall"
+      }
+    ],
+    "strict_tags": {
+      "building": "civic"
+    },
+    "subcategory": "civic",
+    "support_tags": {}
+  },
+  "building_police": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Karakol",
+    "name_patterns": [
+      "polis",
+      "police",
+      "karakol"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "police"
+      },
+      {
+        "amenity": "police"
+      }
+    ],
+    "strict_tags": {
+      "building": "police"
+    },
+    "subcategory": "police",
+    "support_tags": {
+      "amenity": "police"
+    }
+  },
+  "building_fire_station": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "İtfaiye",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "fire_station"
+      },
+      {
+        "amenity": "fire_station"
+      }
+    ],
+    "strict_tags": {
+      "building": "fire_station"
+    },
+    "subcategory": "fire_station",
+    "support_tags": {}
+  },
+  "building_garages": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Garaj / Otopark",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "garage"
+      },
+      {
+        "building": "garages"
+      },
+      {
+        "amenity": "parking"
+      }
+    ],
+    "strict_tags": {
+      "building": "garage"
+    },
+    "subcategory": "garages",
+    "support_tags": {}
+  },
+  "building_sports_hall": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Spor Salonu",
+    "name_patterns": [
+      "spor salonu",
+      "sports hall",
+      "gymnasium"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "sports_hall"
+      },
+      {
+        "leisure": "sports_centre"
+      }
+    ],
+    "strict_tags": {
+      "building": "sports_hall"
+    },
+    "subcategory": "sports_hall",
+    "support_tags": {}
+  },
+  "building_historic": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": false,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Tarihsel",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "historic": true
+      },
+      {
+        "building": "historic"
+      }
+    ],
+    "strict_tags": {
+      "building": "historic"
+    },
+    "subcategory": "historic",
+    "support_tags": {
+      "historic": true
+    }
+  },
+  "building_yes": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": true,
+    "export_family": "building",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Belirsiz Bina (yes)",
+    "name_patterns": [],
+    "query_mode": "strict",
+    "query_tags": [
+      {
+        "building": "yes"
+      }
+    ],
+    "strict_tags": {
+      "building": "yes"
+    },
+    "subcategory": "yes",
+    "support_tags": {}
+  },
+  "building_yes_unresolved": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "buildings",
+    "collect_unresolved": true,
+    "export_family": "derived",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Çözülemeyen yes Binaları",
+    "name_patterns": [],
+    "query_mode": "derived_only",
+    "query_tags": [],
+    "strict_tags": {
+      "building": "yes"
+    },
+    "subcategory": "yes_unresolved",
+    "support_tags": {}
+  },
+  "hospital": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Hastane",
+    "name_patterns": [
+      "hastane",
+      "hospital",
+      "tıp merkezi",
+      "tip merkezi",
+      "medical"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "hospital"
+      },
+      {
+        "healthcare": "hospital"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "hospital"
+    },
+    "subcategory": "hospital",
+    "support_tags": {
+      "healthcare": "hospital",
+      "emergency": "yes"
+    }
+  },
+  "clinic": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Klinik",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "clinic"
+      },
+      {
+        "healthcare": "clinic"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "clinic"
+    },
+    "subcategory": "clinic",
+    "support_tags": {
+      "healthcare": "clinic"
+    }
+  },
+  "family_health": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Aile Sağlığı Merkezi",
+    "name_patterns": [
+      "aile sağlığı",
+      "aile sagligi",
+      "asm",
+      "aile hekimi"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "doctors"
+      },
+      {
+        "healthcare": "doctor"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "doctors"
+    },
+    "subcategory": "family_health",
+    "support_tags": {
+      "healthcare": "doctor"
+    }
+  },
+  "dentist": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Diş Hekimi",
+    "name_patterns": [
+      "diş",
+      "dis",
+      "dent",
+      "dentist"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "dentist"
+      },
+      {
+        "healthcare": "dentist"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "dentist"
+    },
+    "subcategory": "dentist",
+    "support_tags": {}
+  },
+  "pharmacy": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Eczane",
+    "name_patterns": [
+      "eczane",
+      "pharmacy"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "pharmacy"
+      },
+      {
+        "amenity": "pharmacy",
+        "dispensing": "yes"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "pharmacy"
+    },
+    "subcategory": "pharmacy",
+    "support_tags": {
+      "dispensing": "yes",
+      "healthcare": "pharmacy"
+    }
+  },
+  "emergency": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Acil Servis",
+    "name_patterns": [
+      "acil"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "hospital",
+        "emergency": "yes"
+      },
+      {
+        "amenity": "hospital"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "hospital"
+    },
+    "subcategory": "emergency",
+    "support_tags": {
+      "amenity": "hospital"
+    }
+  },
+  "veterinary": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Veteriner",
+    "name_patterns": [
+      "veteriner",
+      "veterinary"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "veterinary"
+      },
+      {
+        "healthcare": "veterinary"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "veterinary"
+    },
+    "subcategory": "veterinary",
+    "support_tags": {}
+  },
+  "ambulance_station": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Ambulans İstasyonu",
+    "name_patterns": [
+      "ambulans",
+      "ambulance"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "emergency": "ambulance_station"
+      },
+      {
+        "amenity": "ambulance_station"
+      }
+    ],
+    "strict_tags": {
+      "emergency": "ambulance_station"
+    },
+    "subcategory": "ambulance_station",
+    "support_tags": {}
+  },
+  "optician": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Optisyen",
+    "name_patterns": [
+      "optik",
+      "optician",
+      "gözlük"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "shop": "optician"
+      },
+      {
+        "healthcare": "optometrist"
+      }
+    ],
+    "strict_tags": {
+      "shop": "optician"
+    },
+    "subcategory": "optician",
+    "support_tags": {}
+  },
+  "private_hospital": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Hastane - Özel",
+    "name_patterns": [
+      "özel",
+      "ozel",
+      "private hospital",
+      "medical center",
+      "tıp merkezi"
+    ],
+    "query_mode": "derived_union",
+    "query_tags": [
+      {
+        "amenity": "hospital"
+      },
+      {
+        "healthcare": "hospital"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "hospital"
+    },
+    "subcategory": "private_hospital",
+    "support_tags": {
+      "operator:type": "private"
+    }
+  },
+  "public_hospital": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "health",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Hastane - Kamu",
+    "name_patterns": [
+      "devlet hastanesi",
+      "şehir hastanesi",
+      "eğitim araştırma",
+      "numune",
+      "dirim",
+      "bezm-i alem",
+      "haseki",
+      "bakırköy ruh"
+    ],
+    "query_mode": "derived_union",
+    "query_tags": [
+      {
+        "amenity": "hospital"
+      },
+      {
+        "healthcare": "hospital"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "hospital"
+    },
+    "subcategory": "public_hospital",
+    "support_tags": {
+      "operator:type": "public",
+      "operator": true
+    }
+  },
+  "primary_school": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "İlkokul",
+    "name_patterns": [
+      "ilkokul",
+      "primary school",
+      "1. sınıf"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "school",
+        "isced:level": "1"
+      },
+      {
+        "amenity": "school"
+      },
+      {
+        "building": "school"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "school"
+    },
+    "subcategory": "primary_school",
+    "support_tags": {
+      "isced:level": "1",
+      "operator:type": "public"
+    }
+  },
+  "middle_school": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Ortaokul",
+    "name_patterns": [
+      "ortaokul",
+      "middle school"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "school",
+        "isced:level": "2"
+      },
+      {
+        "amenity": "school"
+      },
+      {
+        "building": "school"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "school"
+    },
+    "subcategory": "middle_school",
+    "support_tags": {
+      "isced:level": "2"
+    }
+  },
+  "high_school": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Lise",
+    "name_patterns": [
+      "lise",
+      "high school",
+      "anadolu lisesi",
+      "fen lisesi"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "school",
+        "isced:level": "3"
+      },
+      {
+        "amenity": "school"
+      },
+      {
+        "building": "school"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "school"
+    },
+    "subcategory": "high_school",
+    "support_tags": {
+      "isced:level": "3"
+    }
+  },
+  "public_school": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Devlet Okulu",
+    "name_patterns": [
+      "anadolu",
+      "ilkokul",
+      "ortaokul",
+      "lise"
+    ],
+    "query_mode": "derived_union",
+    "query_tags": [
+      {
+        "amenity": "school"
+      },
+      {
+        "building": "school"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "school"
+    },
+    "subcategory": "public_school",
+    "support_tags": {
+      "operator": true
+    }
+  },
+  "private_school": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Özel Okul",
+    "name_patterns": [
+      "özel",
+      "ozel",
+      "kolej",
+      "koleji"
+    ],
+    "query_mode": "derived_union",
+    "query_tags": [
+      {
+        "amenity": "school"
+      },
+      {
+        "building": "school"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "school"
+    },
+    "subcategory": "private_school",
+    "support_tags": {}
+  },
+  "education_university": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Üniversite",
+    "name_patterns": [
+      "üniversite",
+      "universit"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "university"
+      },
+      {
+        "building": "university"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "university"
+    },
+    "subcategory": "university",
+    "support_tags": {}
+  },
+  "student_dormitory": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Yurt / KYK",
+    "name_patterns": [
+      "yurt",
+      "kyk",
+      "dormitory"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "building": "dormitory"
+      },
+      {
+        "amenity": "dormitory"
+      }
+    ],
+    "strict_tags": {
+      "building": "dormitory"
+    },
+    "subcategory": "student_dormitory",
+    "support_tags": {}
+  },
+  "kindergarten": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Anaokulu / Kreş",
+    "name_patterns": [
+      "anaokul",
+      "kindergarten",
+      "kreş",
+      "kres"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "kindergarten"
+      },
+      {
+        "building": "kindergarten"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "kindergarten"
+    },
+    "subcategory": "kindergarten",
+    "support_tags": {}
+  },
+  "college_course": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Dershane / Kurs",
+    "name_patterns": [
+      "kurs",
+      "dershane",
+      "etüt",
+      "surucu kursu"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "college"
+      },
+      {
+        "amenity": "language_school"
+      },
+      {
+        "amenity": "tutoring"
+      }
+    ],
+    "strict_tags": {
+      "office": "educational_institution"
+    },
+    "subcategory": "college_course",
+    "support_tags": {}
+  },
+  "library": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "education",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Kütüphane",
+    "name_patterns": [
+      "kütüphane",
+      "kutuphane",
+      "library"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "library"
+      },
+      {
+        "building": "library"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "library"
+    },
+    "subcategory": "library",
+    "support_tags": {}
+  },
+  "assembly_point": {
+    "accept_query_tag_match": true,
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Toplanma Alanı",
+    "name_patterns": [
+      "toplanma",
+      "toplanma alani",
+      "toplanma alanı",
+      "deprem toplanma",
+      "afet toplanma",
+      "emergency assembly",
+      "muster point"
+    ],
+    "query_mode": "union",
+    "query_tag_match_score": 1,
+    "query_tags": [
+      {
+        "emergency": "assembly_point"
+      },
+      {
+        "amenity": "assembly_point"
+      },
+      {
+        "amenity": "emergency_assembly_point"
+      },
+      {
+        "leisure": "park"
+      }
+    ],
+    "strict_tags": [
+      {
+        "emergency": "assembly_point"
+      },
+      {
+        "amenity": "assembly_point"
+      },
+      {
+        "amenity": "emergency_assembly_point"
+      }
+    ],
+    "subcategory": "assembly_point",
+    "support_tags": {}
+  },
+  "park": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "landuse",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon",
+      "Point"
+    ],
+    "label_tr": "Park",
+    "name_patterns": [
+      "park"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "leisure": "park"
+      }
+    ],
+    "strict_tags": {
+      "leisure": "park"
+    },
+    "subcategory": "park",
+    "support_tags": {}
+  },
+  "playground": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "landuse",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon",
+      "Point"
+    ],
+    "label_tr": "Çocuk Oyun Alanı",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "leisure": "playground"
+      }
+    ],
+    "strict_tags": {
+      "leisure": "playground"
+    },
+    "subcategory": "playground",
+    "support_tags": {}
+  },
+  "pitch": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "landuse",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon",
+      "Point"
+    ],
+    "label_tr": "Spor Sahası",
+    "name_patterns": [
+      "saha",
+      "pitch",
+      "halı saha",
+      "hali saha"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "leisure": "pitch"
+      }
+    ],
+    "strict_tags": {
+      "leisure": "pitch"
+    },
+    "subcategory": "pitch",
+    "support_tags": {}
+  },
+  "garden": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "landuse",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon",
+      "Point"
+    ],
+    "label_tr": "Botanik Bahçe",
+    "name_patterns": [
+      "bahçe",
+      "bahcesi",
+      "garden",
+      "botanik"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "leisure": "garden"
+      },
+      {
+        "leisure": "nature_reserve"
+      }
+    ],
+    "strict_tags": {
+      "leisure": "garden"
+    },
+    "subcategory": "garden",
+    "support_tags": {}
+  },
+  "forest": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "landuse",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Orman / Koruluk",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "landuse": "forest"
+      },
+      {
+        "natural": "wood"
+      }
+    ],
+    "strict_tags": {
+      "landuse": "forest"
+    },
+    "subcategory": "forest",
+    "support_tags": {}
+  },
+  "cemetery": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "landuse",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Mezarlık",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "landuse": "cemetery"
+      },
+      {
+        "amenity": "grave_yard"
+      }
+    ],
+    "strict_tags": {
+      "landuse": "cemetery"
+    },
+    "subcategory": "cemetery",
+    "support_tags": {}
+  },
+  "beach": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "landuse",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon",
+      "Point"
+    ],
+    "label_tr": "Sahil / Kıyı Bandı",
+    "name_patterns": [
+      "sahil",
+      "plaj",
+      "beach",
+      "coast"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "natural": "beach"
+      },
+      {
+        "leisure": "beach_resort"
+      }
+    ],
+    "strict_tags": {
+      "natural": "beach"
+    },
+    "subcategory": "beach",
+    "support_tags": {}
+  },
+  "sports_centre": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "landuse",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon",
+      "Point"
+    ],
+    "label_tr": "Spor Kompleksi",
+    "name_patterns": [
+      "spor kompleksi",
+      "sports centre",
+      "spor merkezi"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "leisure": "sports_centre"
+      },
+      {
+        "amenity": "sports_centre"
+      }
+    ],
+    "strict_tags": {
+      "leisure": "sports_centre"
+    },
+    "subcategory": "sports_centre",
+    "support_tags": {}
+  },
+  "stadium": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "green_area",
+    "collect_unresolved": false,
+    "export_family": "landuse",
+    "geometry_expected": [
+      "Polygon",
+      "MultiPolygon",
+      "Point"
+    ],
+    "label_tr": "Stadyum",
+    "name_patterns": [
+      "stadyum",
+      "stadium"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "leisure": "stadium"
+      },
+      {
+        "building": "stadium"
+      }
+    ],
+    "strict_tags": {
+      "leisure": "stadium"
+    },
+    "subcategory": "stadium",
+    "support_tags": {}
+  },
+  "bus_stop": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "transport",
+    "geometry_expected": [
+      "Point"
+    ],
+    "label_tr": "Otobüs Durağı",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "highway": "bus_stop"
+      }
+    ],
+    "strict_tags": {
+      "highway": "bus_stop"
+    },
+    "subcategory": "bus_stop",
+    "support_tags": {
+      "bus": "yes"
+    }
+  },
+  "metrobus_stop": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "transport",
+    "geometry_expected": [
+      "Point",
+      "Polygon"
+    ],
+    "label_tr": "Metrobüs Durağı",
+    "name_patterns": [
+      "metrobüs",
+      "metrobus"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "highway": "bus_stop"
+      },
+      {
+        "highway": "bus_stop",
+        "bus": "metrobus"
+      }
+    ],
+    "strict_tags": {
+      "highway": "bus_stop"
+    },
+    "subcategory": "metrobus_stop",
+    "support_tags": {
+      "bus": "yes"
+    }
+  },
+  "metro_station": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "transport",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Metro İstasyonu",
+    "name_patterns": [
+      "istasyon",
+      "station",
+      "gar"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "railway": "station",
+        "station": "subway"
+      },
+      {
+        "railway": "station"
+      }
+    ],
+    "strict_tags": {
+      "railway": "station"
+    },
+    "subcategory": "metro_station",
+    "support_tags": {
+      "station": "subway",
+      "railway": "station"
+    }
+  },
+  "tram_stop": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "transport",
+    "geometry_expected": [
+      "Point"
+    ],
+    "label_tr": "Tramvay Durağı",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "railway": "tram_stop"
+      }
+    ],
+    "strict_tags": {
+      "railway": "tram_stop"
+    },
+    "subcategory": "tram_stop",
+    "support_tags": {}
+  },
+  "ferry_terminal": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "transport",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Vapur İskelesi",
+    "name_patterns": [
+      "iskele",
+      "iskelesi",
+      "pier",
+      "ferry"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "ferry_terminal"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "ferry_terminal"
+    },
+    "subcategory": "ferry_terminal",
+    "support_tags": {
+      "ferry": "yes"
+    }
+  },
+  "bus_station": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "transport",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Otogar",
+    "name_patterns": [
+      "otogar",
+      "bus station"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "bus_station"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "bus_station"
+    },
+    "subcategory": "bus_station",
+    "support_tags": {}
+  },
+  "parking": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "transport",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Otopark",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "parking"
+      },
+      {
+        "building": "parking"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "parking"
+    },
+    "subcategory": "parking",
+    "support_tags": {}
+  },
+  "bicycle_parking": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "transport",
+    "geometry_expected": [
+      "Point",
+      "Polygon"
+    ],
+    "label_tr": "Bisiklet Park",
+    "name_patterns": [
+      "bisiklet park",
+      "bike parking"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "bicycle_parking"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "bicycle_parking"
+    },
+    "subcategory": "bicycle_parking",
+    "support_tags": {}
+  },
+  "taxi": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "transport",
+    "geometry_expected": [
+      "Point",
+      "Polygon"
+    ],
+    "label_tr": "Taksi Durağı",
+    "name_patterns": [
+      "taksi",
+      "taxi"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "taxi"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "taxi"
+    },
+    "subcategory": "taxi",
+    "support_tags": {}
+  },
+  "bridge": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "transport",
+    "collect_unresolved": false,
+    "export_family": "network",
+    "geometry_expected": [
+      "LineString",
+      "MultiLineString",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Köprü",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "bridge": true
+      },
+      {
+        "building": "bridge"
+      }
+    ],
+    "strict_tags": {
+      "bridge": true
+    },
+    "subcategory": "bridge",
+    "support_tags": {}
+  },
+  "supermarket": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Süpermarket",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "shop": "supermarket"
+      },
+      {
+        "building": "supermarket"
+      }
+    ],
+    "strict_tags": {
+      "shop": "supermarket"
+    },
+    "subcategory": "supermarket",
+    "support_tags": {}
+  },
+  "market": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Market",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "shop": "convenience"
+      },
+      {
+        "shop": "grocery"
+      }
+    ],
+    "strict_tags": {
+      "shop": "convenience"
+    },
+    "subcategory": "market",
+    "support_tags": {}
+  },
+  "mall": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "AVM",
+    "name_patterns": [
+      "avm",
+      "mall"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "shop": "mall"
+      },
+      {
+        "building": "retail"
+      }
+    ],
+    "strict_tags": {
+      "shop": "mall"
+    },
+    "subcategory": "mall",
+    "support_tags": {}
+  },
+  "bank": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Banka",
+    "name_patterns": [
+      "banka",
+      "bank"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "bank"
+      },
+      {
+        "amenity": "bureau_de_change"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "bank"
+    },
+    "subcategory": "bank",
+    "support_tags": {}
+  },
+  "atm": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point"
+    ],
+    "label_tr": "ATM",
+    "name_patterns": [
+      "atm",
+      "bankamatik"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "atm"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "atm"
+    },
+    "subcategory": "atm",
+    "support_tags": {}
+  },
+  "restaurant": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Restoran",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "restaurant"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "restaurant"
+    },
+    "subcategory": "restaurant",
+    "support_tags": {}
+  },
+  "cafe": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Kafe",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "cafe"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "cafe"
+    },
+    "subcategory": "cafe",
+    "support_tags": {}
+  },
+  "post_office": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Postane",
+    "name_patterns": [
+      "postane",
+      "ptt",
+      "post office"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "post_office"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "post_office"
+    },
+    "subcategory": "post_office",
+    "support_tags": {}
+  },
+  "commerce_hotel": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Otel",
+    "name_patterns": [
+      "otel",
+      "hotel"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "tourism": "hotel"
+      },
+      {
+        "building": "hotel"
+      }
+    ],
+    "strict_tags": {
+      "tourism": "hotel"
+    },
+    "subcategory": "hotel",
+    "support_tags": {
+      "tourism": "hotel"
+    }
+  },
+  "fuel": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "commerce",
+    "collect_unresolved": false,
+    "export_family": "poi",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Benzin İstasyonu",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "fuel"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "fuel"
+    },
+    "subcategory": "fuel",
+    "support_tags": {}
+  },
+  "power_substation": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "infrastructure",
+    "collect_unresolved": false,
+    "export_family": "infrastructure",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Elektrik Trafosu",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "power": "substation"
+      },
+      {
+        "building": "transformer_tower"
+      }
+    ],
+    "strict_tags": {
+      "power": "substation"
+    },
+    "subcategory": "power_substation",
+    "support_tags": {}
+  },
+  "water_tower": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "infrastructure",
+    "collect_unresolved": false,
+    "export_family": "infrastructure",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Su Deposu / Kulesi",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "man_made": "water_tower"
+      },
+      {
+        "building": "water_tower"
+      }
+    ],
+    "strict_tags": {
+      "man_made": "water_tower"
+    },
+    "subcategory": "water_tower",
+    "support_tags": {}
+  },
+  "communication_tower": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "infrastructure",
+    "collect_unresolved": false,
+    "export_family": "infrastructure",
+    "geometry_expected": [
+      "Point",
+      "Polygon"
+    ],
+    "label_tr": "İletişim Kulesi",
+    "name_patterns": [
+      "iletisim kulesi",
+      "communication tower",
+      "verici"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "man_made": "tower"
+      },
+      {
+        "tower:type": "communication"
+      },
+      {
+        "man_made": "mast"
+      }
+    ],
+    "strict_tags": {
+      "man_made": "tower"
+    },
+    "subcategory": "communication_tower",
+    "support_tags": {
+      "tower:type": "communication"
+    }
+  },
+  "waste_disposal": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": true,
+    "category_group": "infrastructure",
+    "collect_unresolved": false,
+    "export_family": "infrastructure",
+    "geometry_expected": [
+      "Point",
+      "Polygon"
+    ],
+    "label_tr": "Çöp Toplama",
+    "name_patterns": [
+      "atik",
+      "çöp",
+      "cop",
+      "waste"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "waste_disposal"
+      },
+      {
+        "amenity": "waste_basket"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "waste_disposal"
+    },
+    "subcategory": "waste_disposal",
+    "support_tags": {}
+  },
+  "recycling": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "infrastructure",
+    "collect_unresolved": false,
+    "export_family": "infrastructure",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Geri Dönüşüm",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "recycling"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "recycling"
+    },
+    "subcategory": "recycling",
+    "support_tags": {}
+  },
+  "infrastructure_police": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "infrastructure",
+    "collect_unresolved": false,
+    "export_family": "infrastructure",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Karakol",
+    "name_patterns": [
+      "polis",
+      "police",
+      "karakol"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "police"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "police"
+    },
+    "subcategory": "police",
+    "support_tags": {}
+  },
+  "infrastructure_fire_station": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "infrastructure",
+    "collect_unresolved": false,
+    "export_family": "infrastructure",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "İtfaiye İstasyonu",
+    "name_patterns": [
+      "itfaiye",
+      "fire station"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "fire_station"
+      },
+      {
+        "building": "fire_station"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "fire_station"
+    },
+    "subcategory": "fire_station",
+    "support_tags": {}
+  },
+  "power_line": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "infrastructure",
+    "collect_unresolved": false,
+    "export_family": "network",
+    "geometry_expected": [
+      "LineString",
+      "MultiLineString"
+    ],
+    "label_tr": "Elektrik Hattı",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "power": "line"
+      },
+      {
+        "power": "minor_line"
+      }
+    ],
+    "strict_tags": {
+      "power": "line"
+    },
+    "subcategory": "power_line",
+    "support_tags": {}
+  },
+  "mast": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "infrastructure",
+    "collect_unresolved": false,
+    "export_family": "infrastructure",
+    "geometry_expected": [
+      "Point",
+      "Polygon"
+    ],
+    "label_tr": "Baz İstasyonu",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "man_made": "mast"
+      },
+      {
+        "tower:type": "communication"
+      }
+    ],
+    "strict_tags": {
+      "man_made": "mast"
+    },
+    "subcategory": "mast",
+    "support_tags": {}
+  },
+  "museum": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "culture",
+    "collect_unresolved": false,
+    "export_family": "culture",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Müze",
+    "name_patterns": [
+      "müze",
+      "muze",
+      "museum"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "tourism": "museum"
+      },
+      {
+        "building": "museum"
+      }
+    ],
+    "strict_tags": {
+      "tourism": "museum"
+    },
+    "subcategory": "museum",
+    "support_tags": {}
+  },
+  "historic_building": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "culture",
+    "collect_unresolved": false,
+    "export_family": "culture",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Tarihi Yapı",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "historic": true
+      },
+      {
+        "building": "historic"
+      }
+    ],
+    "strict_tags": {
+      "historic": true
+    },
+    "subcategory": "historic_building",
+    "support_tags": {}
+  },
+  "monument": {
+    "allow_building_yes_mapping": false,
+    "allow_name_fallback": false,
+    "category_group": "culture",
+    "collect_unresolved": false,
+    "export_family": "culture",
+    "geometry_expected": [
+      "Point",
+      "Polygon"
+    ],
+    "label_tr": "Anıt",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "historic": "monument"
+      }
+    ],
+    "strict_tags": {
+      "historic": "monument"
+    },
+    "subcategory": "monument",
+    "support_tags": {}
+  },
+  "castle": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": false,
+    "category_group": "culture",
+    "collect_unresolved": false,
+    "export_family": "culture",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Kale / Sur",
+    "name_patterns": [],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "historic": "castle"
+      },
+      {
+        "building": "castle"
+      }
+    ],
+    "strict_tags": {
+      "historic": "castle"
+    },
+    "subcategory": "castle",
+    "support_tags": {}
+  },
+  "theatre": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "culture",
+    "collect_unresolved": false,
+    "export_family": "culture",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Tiyatro",
+    "name_patterns": [
+      "tiyatro",
+      "theatre",
+      "theater"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "theatre"
+      },
+      {
+        "building": "theatre"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "theatre"
+    },
+    "subcategory": "theatre",
+    "support_tags": {}
+  },
+  "cinema": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "culture",
+    "collect_unresolved": false,
+    "export_family": "culture",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Sinema",
+    "name_patterns": [
+      "sinema",
+      "cinema"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "cinema"
+      },
+      {
+        "building": "cinema"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "cinema"
+    },
+    "subcategory": "cinema",
+    "support_tags": {}
+  },
+  "arts_centre": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "culture",
+    "collect_unresolved": false,
+    "export_family": "culture",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Kültür Merkezi",
+    "name_patterns": [
+      "kültür merkezi",
+      "kultur merkezi",
+      "sanat merkezi",
+      "arts centre"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "arts_centre"
+      },
+      {
+        "amenity": "community_centre"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "arts_centre"
+    },
+    "subcategory": "arts_centre",
+    "support_tags": {}
+  },
+  "public_bath": {
+    "allow_building_yes_mapping": true,
+    "allow_name_fallback": true,
+    "category_group": "culture",
+    "collect_unresolved": false,
+    "export_family": "culture",
+    "geometry_expected": [
+      "Point",
+      "Polygon",
+      "MultiPolygon"
+    ],
+    "label_tr": "Hamam",
+    "name_patterns": [
+      "hamam",
+      "bath"
+    ],
+    "query_mode": "union",
+    "query_tags": [
+      {
+        "amenity": "public_bath"
+      },
+      {
+        "historic": "public_bath"
+      }
+    ],
+    "strict_tags": {
+      "amenity": "public_bath"
+    },
+    "subcategory": "public_bath",
+    "support_tags": {}
+  }
+}
