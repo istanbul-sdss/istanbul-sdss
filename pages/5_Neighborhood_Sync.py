@@ -69,11 +69,11 @@ backup = st.sidebar.checkbox(
 backup_off_confirmed = True
 if not backup:
     st.sidebar.warning(
-        "⚠ Backup kapalı — mevcut dosya **kalıcı olarak** üzerine yazılacak. "
-        "Geri alınamaz."
+        "⚠ Backup is OFF — existing files will be **permanently** "
+        "overwritten. This cannot be undone."
     )
     backup_off_confirmed = st.sidebar.checkbox(
-        "Yedeksiz üzerine yazma riskini kabul ediyorum",
+        "I accept the risk of overwriting without a backup",
         value=False,
         key="nbsync_backup_off_confirm",
     )
@@ -216,17 +216,18 @@ if not selected:
     _sync_disabled_reason = "Select at least one district to sync."
 elif not backup and not backup_off_confirmed:
     _sync_disabled_reason = (
-        "⚠ Backup kapalı — mevcut dosyaların kalıcı olarak üzerine yazılması "
-        "için sidebar'daki onay checkbox'ını işaretleyin."
+        "⚠ Backup is OFF — tick the confirmation checkbox in the sidebar "
+        "to permit permanent overwriting of existing files."
     )
 # Bulk update için ek uyarı: tek tıkla 39 ilçe Overpass'tan yeniden
 # çekiliyor — 20+ dakika sürebilir.
 if mode == "Bulk update" and len(selected) >= 5:
     st.info(
-        f"ℹ Bulk plan: **{len(selected)} ilçe** sırayla işlenecek. "
-        f"Tahmini süre: **~{max(1, len(selected) // 2)}-{max(2, len(selected))} dk** "
-        f"(Overpass cevap süresine bağlı). İptal etmek için tarayıcı sekmesi "
-        f"kapatılmalı; başarılı/başarısız ayrımı sonuçta gösterilir."
+        f"ℹ Bulk plan: **{len(selected)} districts** will be processed in "
+        f"sequence. Estimated runtime: **~{max(1, len(selected) // 2)}-"
+        f"{max(2, len(selected))} min** (depends on Overpass response time). "
+        f"To cancel, close the browser tab; success/failure breakdown is "
+        f"shown in the results."
     )
 
 if _sync_disabled_reason:
