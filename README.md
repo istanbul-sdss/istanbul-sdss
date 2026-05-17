@@ -82,6 +82,33 @@ streamlit run Spatial_Data_Collection_Tool.py
 streamlit run Optimization_Tool.py --server.port 8502
 ```
 
+### Reprodüksiyon (lock file ile birebir aynı sürümler)
+
+`requirements.txt` aralıklı (`>=lower,<upper`) tutulduğu için iki kurulum
+arasında alt paketler farklı patch/minor sürümlere düşebilir. Tezde aynı
+sayıların üretilmesi, hocaların aynı çıktıyı görmesi ya da CI'da deterministik
+build için **lock file** kullanın:
+
+```bash
+# Aralıklı yerine pinned kurulum (her paket tam sürüm)
+pip install -r requirements.lock              # sadece runtime
+pip install -r requirements-dev.lock          # runtime + test/lint
+```
+
+Lock dosyaları `pip-tools` (`pip install pip-tools` veya
+`requirements-dev.txt`'ten gelir) ile yenilenir:
+
+```bash
+python -m piptools compile --strip-extras \
+    --output-file=requirements.lock requirements.txt
+python -m piptools compile --strip-extras \
+    --output-file=requirements-dev.lock requirements.txt requirements-dev.txt
+```
+
+Bir bağımlılığı bilinçli güncellemek için: önce `requirements.txt` veya
+`requirements-dev.txt` üst sınırını oynat, sonra yukarıdaki iki komutu
+tekrar çalıştır, sonuçtaki `.lock` farklarını review et, commit at.
+
 ## Kurulumun Doğrulanması
 
 Kurulumdan sonra **iki dakikalık** bir doğrulama akışı:
