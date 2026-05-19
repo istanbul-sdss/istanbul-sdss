@@ -111,6 +111,55 @@ def test_time_limit_override_passes_through():
     assert sonuc.yontem == "ILP"
 
 
+def test_time_limit_sentinel_zero_means_unlimited(monkeypatch):
+    """
+    Sentinel: time_limit_sn=0 → CBC'ye timeLimit=None gönderilir (sınırsız).
+    Önceden `or` operatörü 0'ı falsy sayıp default'a düşürüyordu — kullanıcı
+    "sınırsız" istediğinde sessizce settings.ILP_TIME_LIMIT_SN'e iniyordu.
+
+    Davranış doğrulaması: PULP_CBC_CMD mock'lanarak timeLimit kwarg'ı yakalanır;
+    0 → None ve int>0 → int eşlemesi test edilir.
+    """
+    import pulp
+
+    from src.optimizer import p_median as pm
+
+    captured: dict = {}
+    _OriginalCBC = pulp.PULP_CBC_CMD   # patch öncesi referansı tut
+
+    class _MockCmd:
+        def __init__(self, *_, **kwargs):
+            captured["timeLimit"] = kwargs.get("timeLimit")
+            # Gerçek CBC sürücüsünü dahili olarak kullan (mesaj kapalı,
+            # timeLimit'i de aynen ilet ki sınırsız=None davranışı çalışsın)
+            self._delegate = _OriginalCBC(msg=0, timeLimit=kwargs.get("timeLimit"))
+
+        # PuLP solver protokolünün küçük yüzeyi
+        def actualSolve(self, prob):  # noqa: N802 (PuLP API)
+            return self._delegate.actualSolve(prob)
+
+        def solve(self, prob):
+            return self.actualSolve(prob)
+
+    monkeypatch.setattr(pulp, "PULP_CBC_CMD", _MockCmd)
+
+    od, binalar, alanlar = _make_data(n_bina=10)
+
+    # 0 → unlimited (None CBC'ye iletilmeli)
+    coz(od, binalar, alanlar, p=2, solver="ilp", time_limit_sn=0)
+    assert captured["timeLimit"] is None, (
+        f"time_limit_sn=0 ile CBC'ye None geçilmeli; got {captured['timeLimit']}"
+    )
+
+    # int>0 → o değer aynen iletilir
+    coz(od, binalar, alanlar, p=2, solver="ilp", time_limit_sn=120)
+    assert captured["timeLimit"] == 120
+
+    # None → default kullanılır (ILP_TIME_LIMIT_SN)
+    coz(od, binalar, alanlar, p=2, solver="ilp", time_limit_sn=None)
+    assert captured["timeLimit"] == pm.ILP_TIME_LIMIT_SN
+
+
 def test_allow_fallback_false_raises_on_ilp_failure():
     """
     Kapasite çok yetersiz → ILP infeasible → allow_fallback=False ise

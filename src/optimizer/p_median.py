@@ -189,6 +189,27 @@ class PMedianResult:
     fallback_nedeni: str | None = None      # ILP→K-Medoids düşüşünün net sebebi
     ilp_status: str | None = None           # PuLP status string ("Optimal", "Infeasible"...)
 
+    # K-Medoids convergence şeffaflığı.
+    #
+    # K-Medoids 1-swap local search heuristic'i lokal optimuma yakınsamayı
+    # MATEMATİKSEL OLARAK GARANTİ ETMEZ — pratikte yakınsar ama edge case'lerde
+    # MAX_ITER limitine takılabilir. Üç durumlu ayrım:
+    #
+    #   • kmedoids_converged = True
+    #         → Local search "no improving swap found" ile durdu;
+    #           çözüm certified locally optimal (1-swap mahallesinde).
+    #   • kmedoids_converged = False
+    #         → MAX_ITER'e takıldı; çözüm best-found heuristic — locally
+    #           optimal olduğu garanti edilemez. UI/Excel açıkça uyarır.
+    #   • kmedoids_converged = None
+    #         → ILP path kullanıldı; PuLP/CBC `prob.status` ayrıca raporlanır
+    #           (`ilp_status`). Convergence kavramı K-Medoids'e özgü.
+    #
+    # `kmedoids_iterations` swap döngüsünün gerçek tur sayısını taşır;
+    # MAX_ITER'le karşılaştırılarak takılma teşhis edilebilir.
+    kmedoids_converged: bool | None = None
+    kmedoids_iterations: int | None = None
+
     # Alan bazlı özet
     alan_ozeti: pd.DataFrame = field(default_factory=pd.DataFrame)
 
@@ -227,7 +248,12 @@ def coz(
                        "kmedoids" (zorla K-Medoids).
                        Solver-amac çakışmaları: solver="ilp" + amac="min_p95"
                        isteği reddedilir (ValueError) — ILP'de p95 doğrusal değil.
-        time_limit_sn: ILP zaman limiti override (None → settings.ILP_TIME_LIMIT_SN).
+        time_limit_sn: ILP zaman limiti (saniye).
+                       • None  → settings.ILP_TIME_LIMIT_SN (varsayılan limit)
+                       • 0     → SINIRSIZ (CBC, kanıtlı optimum/infeasible'a kadar
+                                 çalışır; akademik karşılaştırma / "ne kadar
+                                 sürerse sürsün" senaryosu için)
+                       • int>0 → o kadar saniye
                        Sadece ILP modu için anlamlı.
         allow_fallback: True (varsayılan) → ILP başarısızsa K-Medoids'e düş.
                        False → ILP başarısızsa RuntimeError fırlat (akademik
@@ -276,9 +302,21 @@ def coz(
        f"allow_fallback={allow_fallback}")
 
     if not use_kmedoids:
+        # time_limit_sn sentinel haritası:
+        #   None → default (settings.ILP_TIME_LIMIT_SN)
+        #   0    → UNLIMITED (CBC'ye timeLimit=None gönder; kanıtlı bitişe kadar)
+        #   int>0 → kullanıcı tarafından verilmiş süre
+        # `or` operatörü 0'ı falsy sayıp default'a düşürürdü → değiştirildi.
+        if time_limit_sn is None:
+            _effective_tl: int | None = ILP_TIME_LIMIT_SN
+        elif time_limit_sn <= 0:
+            _effective_tl = None   # sınırsız
+        else:
+            _effective_tl = int(time_limit_sn)
+
         result = _coz_ilp(
             od, binalar_gdf, toplanma_gdf, p, kapasite, max_sure_dk, amac, cb,
-            time_limit_sn=time_limit_sn or ILP_TIME_LIMIT_SN,
+            time_limit_sn=_effective_tl,
             allow_fallback=allow_fallback,
         )
     else:
@@ -378,9 +416,13 @@ def _coz_ilp(
     max_sure_dk: float | None,
     amac: ObjectiveMode,
     cb: Callable,
-    time_limit_sn: int = ILP_TIME_LIMIT_SN,
+    time_limit_sn: int | None = ILP_TIME_LIMIT_SN,
     allow_fallback: bool = True,
 ) -> PMedianResult:
+    """
+    time_limit_sn=None → CBC'ye `timeLimit` parametresi None olarak iletilir
+    (PuLP convention'ı: limitsiz). Status mesajlarında "unlimited" olarak yazılır.
+    """
     try:
         import pulp
     except ImportError as e:
@@ -470,8 +512,9 @@ def _coz_ilp(
         kapasite_aktif = True
         cb(f"Capacity constraint added (total capacity: {kapasiteler.sum():,.0f} people)")
 
+    _tl_str = "unlimited" if time_limit_sn is None else f"{time_limit_sn}s"
     cb(f"Solving ILP (CBC solver, {len(x):,} x variables, "
-       f"timeLimit={time_limit_sn}s)...")
+       f"timeLimit={_tl_str})...")
     prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=time_limit_sn))
 
     status = pulp.LpStatus[prob.status]
@@ -500,9 +543,13 @@ def _coz_ilp(
                 "available capacity."
             )
         elif prob.status == 0:
+            _tl_msg = (
+                "the unlimited time budget" if time_limit_sn is None
+                else f"the {time_limit_sn}s time limit"
+            )
             sebep = (
-                f"ILP did not find any feasible solution within the "
-                f"{time_limit_sn}s time limit (problem too large or hard). "
+                f"ILP did not find any feasible solution within {_tl_msg} "
+                f"(problem too large or hard). "
                 f"K-Medoids will produce a fast approximate solution."
             )
         else:
@@ -528,8 +575,12 @@ def _coz_ilp(
         # Best-found integer solution will be extracted below; mark the
         # status so downstream UI/report can tell it's a feasible-but-not-
         # proven-optimal CBC result (not a K-Medoids fallback).
+        # NOTE: with time_limit_sn=None (unlimited) CBC cannot return
+        # IntegerFeasible without proving optimality, so this branch
+        # effectively only fires under a finite limit. Defensive format.
+        _tl_msg = "unlimited" if time_limit_sn is None else f"{time_limit_sn}s"
         cb(
-            f"ILP stopped at time limit ({time_limit_sn}s) with a feasible "
+            f"ILP stopped at time limit ({_tl_msg}) with a feasible "
             f"integer solution (sol_status=IntegerFeasible). Keeping CBC's "
             f"best-found solution instead of restarting with K-Medoids."
         )
@@ -683,6 +734,14 @@ def _coz_kmedoids(
     mevcut_maliyet = toplam_maliyet(secili)
     gelisim = True
     iterasyon = 0
+    # MAX_ITER lokal sigorta. KMEDOIDS_MAX_ITER (settings.py'da 200) çoğu
+    # gerçek senaryoda yeterli — pratikte 5-30 iterasyonda yakınsanır.
+    # Sigortanın asıl amacı patolojik salınım/plateau senaryolarında
+    # sonsuz döngüyü önlemek.
+    # Future work (R5): MAX_ITER'e ulaşıldığında multi-start restart
+    # (farklı greedy init ile 2-3 deneme, en iyiyi al). Şimdilik yakınsama
+    # durumu PMedianResult.kmedoids_converged ile şeffaf raporlanıyor —
+    # kullanıcı sonucun kalitesini yorumlayabilir.
     MAX_ITER = KMEDOIDS_MAX_ITER
 
     while gelisim and iterasyon < MAX_ITER:
@@ -702,10 +761,21 @@ def _coz_kmedoids(
             if gelisim:
                 break
 
+    # Convergence durumu — döngüden çıkış sebebine göre üç durumlu ayrım
+    # değil iki durumlu (None ILP'ye saklı):
+    #   • gelisim=False ile çıktıysak → "no improving swap found" → CONVERGED
+    #   • iterasyon >= MAX_ITER ise → takıldı, certified değil
+    # NOT: gelisim=False ANCAK iterasyon=MAX_ITER aynı anda olabilir; bu
+    # durumda son tur tek improving swap buldu ve hemen sonra MAX_ITER
+    # ile durdu — pratikte "takıldı" sayılır. `iterasyon >= MAX_ITER`
+    # önceliklidir.
     if iterasyon >= MAX_ITER:
-        cb(f"Local search hit MAX_ITER={MAX_ITER} limit (cost={mevcut_maliyet:.1f})")
+        kmedoids_converged = False
+        cb(f"Local search hit MAX_ITER={MAX_ITER} limit (cost={mevcut_maliyet:.1f}) "
+           f"— result is best-found, NOT certified locally optimal")
     else:
-        cb(f"Local search done: {iterasyon} iterations, cost={mevcut_maliyet:.1f}")
+        kmedoids_converged = True
+        cb(f"Local search converged: {iterasyon} iterations, cost={mevcut_maliyet:.1f}")
 
     # ── Final assignment ──────────────────────────────────────────────────────
     sebep_kodlari = None
@@ -737,6 +807,8 @@ def _coz_kmedoids(
         max_sure_dk_kisit=max_sure_dk,
         kapasite_aktif=(kapasiteler is not None),
         sebep_kodlari=sebep_kodlari,
+        kmedoids_converged=kmedoids_converged,
+        kmedoids_iterations=iterasyon,
     )
 
 
@@ -825,6 +897,11 @@ def _build_result(
     max_sure_dk_kisit: float | None,
     kapasite_aktif: bool,
     sebep_kodlari: np.ndarray | None = None,   # 0=atandı, 1=ağda ulaşılamaz, 2=kapasite yetersiz
+    # K-Medoids convergence şeffaflığı — ILP yolundan çağrıldığında None
+    # default'ları ile geriye uyumlu kalır; K-Medoids yolundan caller
+    # bunları doldurur.
+    kmedoids_converged: bool | None = None,
+    kmedoids_iterations: int | None = None,
 ) -> PMedianResult:
 
     alan_adlari = (
@@ -1041,6 +1118,8 @@ def _build_result(
         p                      = p,
         max_sure_dk_kisit      = max_sure_dk_kisit,
         kapasite_aktif         = kapasite_aktif,
+        kmedoids_converged     = kmedoids_converged,
+        kmedoids_iterations    = kmedoids_iterations,
         alan_ozeti             = alan_ozeti,
     )
 

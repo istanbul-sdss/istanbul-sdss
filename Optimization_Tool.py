@@ -1323,13 +1323,34 @@ if _have("opt_od_matrix"):
 
         # ── Gelişmiş: ILP detayları (sadece ILP veya Auto modunda anlamlı) ──
         with st.expander("⚙️ Advanced ILP options"):
-            time_limit_sn = st.number_input(
-                "ILP time limit (seconds)",
-                min_value=10, max_value=3600, value=int(ILP_TIME_LIMIT_SN), step=30,
-                key="opt_time_limit_sn",
-                help="Only meaningful in Exact (ILP) mode. Increase for large problems.",
+            ilp_unlimited = st.checkbox(
+                "Unlimited time (run until proven optimal/infeasible)",
+                value=False,
+                key="opt_ilp_unlimited",
+                help=(
+                    "**Off (default):** CBC stops at the time limit below and "
+                    "returns the best feasible integer solution found (or "
+                    "falls back to K-Medoids, depending on the next option).\n\n"
+                    "**On:** No time limit is sent to CBC — the solver runs "
+                    "until it proves optimality or infeasibility. Useful for "
+                    "academic comparison; **may take hours** on large problems."
+                ),
                 disabled=(solver_mode == "kmedoids"),
             )
+            time_limit_sn = st.number_input(
+                "ILP time limit (seconds)",
+                min_value=10, max_value=86400, value=int(ILP_TIME_LIMIT_SN), step=30,
+                key="opt_time_limit_sn",
+                help=(
+                    "Only meaningful in Exact (ILP) mode. Increase for large "
+                    "problems. Tick 'Unlimited time' above to disable the "
+                    "limit entirely. Max here is 86 400 s (24 h)."
+                ),
+                disabled=(solver_mode == "kmedoids") or ilp_unlimited,
+            )
+            # Effective value sent to coz(): 0 = unlimited sentinel, else int seconds.
+            # See src/optimizer/p_median.py coz() for the sentinel handling.
+            effective_time_limit = 0 if ilp_unlimited else int(time_limit_sn)
             allow_fallback = st.checkbox(
                 "Fall back to Heuristic if Exact fails",
                 value=True,
@@ -1338,7 +1359,8 @@ if _have("opt_od_matrix"):
                     "**On (default):** if ILP is infeasible or times out, "
                     "fall back to K-Medoids approximate.\n\n"
                     "**Off:** ILP failure raises — useful for academic "
-                    "comparison / root-cause analysis."
+                    "comparison / root-cause analysis. Combine with "
+                    "'Unlimited time' above to insist on a proven ILP optimum."
                 ),
                 disabled=(solver_mode == "kmedoids"),
             )
@@ -1397,7 +1419,7 @@ if _have("opt_od_matrix"):
                                 max_sure_dk=(float(max_walk_cap) if enforce_cap else None),
                                 amac=amac,
                                 solver=solver_mode,
-                                time_limit_sn=int(time_limit_sn),
+                                time_limit_sn=effective_time_limit,
                                 allow_fallback=allow_fallback,
                             )
                             df_sens_en = to_english(df_sens)
@@ -1471,7 +1493,7 @@ if _have("opt_od_matrix"):
                         amac=amac,
                         progress_cb=log_cb,
                         solver=solver_mode,
-                        time_limit_sn=int(time_limit_sn),
+                        time_limit_sn=effective_time_limit,
                         allow_fallback=allow_fallback,
                     )
                     st.session_state.opt_result = result
@@ -1563,6 +1585,51 @@ if _have("opt_result"):
         f"Solved with {result.yontem} in {result.cozum_suresi_sn:.1f}s · "
         f"{objective_txt} · {cap_txt} · {_res_mode_txt}.",
     )
+
+    # K-Medoids convergence banner — solver kalitesi şeffaflığı.
+    # ILP path None döner (PuLP/CBC için convergence kavramı farklı —
+    # `ilp_status` zaten taşınır). K-Medoids için True=converged (locally
+    # optimal certified), False=MAX_ITER hit (best-found, NOT certified).
+    if result.kmedoids_converged is True:
+        _iter_n = result.kmedoids_iterations or 0
+        st.success(
+            f"✓ **Local search converged** in {_iter_n} iteration(s). "
+            f"Solution is certified locally optimal (no improving 1-swap "
+            f"found within the K-Medoids neighbourhood)."
+        )
+    elif result.kmedoids_converged is False:
+        from src.optimizer.p_median import KMEDOIDS_MAX_ITER
+        st.warning(
+            f"⚠ **Local search hit MAX_ITER={KMEDOIDS_MAX_ITER} limit** — "
+            f"the result is the best found so far but is **NOT certified** "
+            f"locally optimal. The heuristic may have missed further "
+            f"improving swaps. Interpret KPIs as an upper bound on the "
+            f"objective; consider re-running with a different random seed "
+            f"or smaller problem partition."
+        )
+    elif result.yontem == "ILP" and result.ilp_status:
+        # Bilgi banner'ı — ILP path için convergence yerine PuLP status
+        if result.ilp_status == "Optimal":
+            st.success(
+                f"✓ **ILP solved to optimality** (CBC status: "
+                f"`{result.ilp_status}`). Solution is provably globally "
+                f"optimal under the formulated constraints."
+            )
+
+    # ILP → K-Medoids fallback banner — sticky görünür uyarı.
+    # `result.fallback_nedeni` populate edilmiş ise kullanıcı ILP'nin
+    # başarısız olduğunu (infeasible / time limit / capacity-tight) net
+    # görsün. Raporda "exact optimum" ile "heuristic fallback" ayrımı
+    # akademik şeffaflık için kritik.
+    if result.fallback_nedeni:
+        st.info(
+            f"ℹ **Solver fallback used:** the exact ILP attempt did not "
+            f"yield a usable solution → switched to K-Medoids heuristic. "
+            f"**Reason:** {result.fallback_nedeni} "
+            f"Reported KPIs reflect the heuristic solution, NOT a provably "
+            f"optimal ILP solution. Consider relaxing constraints (capacity, "
+            f"p) if you need the exact optimum."
+        )
 
     # KPI row — building-count metrics (mode-aware label'lar).
     # "Travel time" terimi hem walking hem driving senaryosunda nötr.
@@ -1953,6 +2020,8 @@ if _have("opt_result"):
                         "Capacity constraint",
                         "p (areas opened)",
                         "Method",
+                        "Convergence status",
+                        "Fallback reason",
                         "Solve time (s)",
                         "— Building-count metrics —",
                         "Avg travel time (min)",
@@ -1987,6 +2056,31 @@ if _have("opt_result"):
                         "Yes" if result.kapasite_aktif else "No",
                         result.p,
                         result.yontem,
+                        # Convergence status — solver tipine göre:
+                        #   • K-Med converged → "Converged in N iter(s)"
+                        #   • K-Med MAX_ITER → "NOT converged — hit MAX_ITER=N"
+                        #   • ILP → "Provably optimal (CBC: <status>)" veya N/A
+                        (
+                            f"Converged in {result.kmedoids_iterations} iter(s)"
+                            if result.kmedoids_converged is True else
+                            (
+                                f"NOT converged — hit MAX_ITER="
+                                f"{result.kmedoids_iterations}"
+                                if result.kmedoids_converged is False else
+                                (
+                                    f"Provably optimal (CBC: {result.ilp_status})"
+                                    if result.ilp_status == "Optimal"
+                                    else (f"ILP status: {result.ilp_status}"
+                                          if result.ilp_status else "—")
+                                )
+                            )
+                        ),
+                        # Fallback reason — ILP→K-Med düşüşünün net sebebi
+                        # (sadece fallback olduysa dolu). Akademik şeffaflık:
+                        # rapor okuyan, "exact" vs "heuristic" ayrımını
+                        # Convergence status + Fallback reason ikilisinden
+                        # net çıkarır.
+                        (result.fallback_nedeni or "—"),
                         round(result.cozum_suresi_sn, 2),
                         "",
                         round(result.ort_sure_dk, 2),
@@ -2036,6 +2130,7 @@ if _have("opt_result"):
                         "Objective",
                         "Capacity",
                         "Solver",
+                        "Termination & convergence",
                         "Reporting",
                     ],
                     "Approach": [
@@ -2070,6 +2165,21 @@ if _have("opt_result"):
                         "tune the ILP time limit, and enable/disable the "
                         "ILP→K-Medoids fallback when ILP is infeasible or "
                         "times out.",
+                        # Termination & convergence — solver-spesifik kalite
+                        # garantileri açıkça belirtilir, akademik şeffaflık
+                        # için kritik.
+                        "ILP (PuLP/CBC): terminates with one of {Optimal, "
+                        "Infeasible, Unbounded, NotSolved (time limit), "
+                        "Undefined}. 'Optimal' status means provably "
+                        "globally optimal under the formulated constraints. "
+                        "K-Medoids: 1-swap local search; terminates when "
+                        "no improving swap is found within the neighbourhood "
+                        "(certified locally optimal) OR when the iteration "
+                        "limit (KMEDOIDS_MAX_ITER, default 200) is reached "
+                        "(NOT certified — result is best-found but the "
+                        "heuristic may have stalled). Convergence status is "
+                        "surfaced in the Summary sheet and the UI banner. "
+                        "Multi-start restart is listed as future work.",
                         "Assignments, alternatives, area-level summary, sensitivity and "
                         "unreachable list — all in this workbook.",
                     ],

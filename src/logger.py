@@ -118,8 +118,30 @@ def get_logger(name: str) -> logging.Logger:
     logger.addHandler(ch)
 
     # Dosya handler — RotatingFileHandler ile sınırsız büyüme engellenir.
+    #
+    # Windows multi-process güvenliği:
+    #   • `delay=True` → dosya ilk log mesajına kadar AÇILMAZ. Aynı anda
+    #     birden fazla Python process aynı app.log'a yazıyorsa (örn. veri
+    #     toplama tool'u + optimizer tool aynı anda açık) erken-açılan
+    #     handler dosyayı kilitler ve rotation rename'i Windows'ta
+    #     PermissionError [WinError 32] ile düşer. Lazy open bu kilit
+    #     pencereyi daraltır — handler get_logger çağrısında değil, ilk
+    #     log emit anında dosyaya dokunur.
+    #   • Multi-worker production deployment için ileri seviye çözüm
+    #     QueueHandler/QueueListener'dır; akademik kapsam için
+    #     `delay=True` yeterli iyileşme sağlar (CI'da `delay`'siz versiyon
+    #     da geçiyordu, ama lokal dev'de aynı anda iki app çalıştırınca
+    #     test rotation kırılıyordu).
     try:
-        log_dir = Path(__file__).parent.parent / "logs"
+        # Log dizini: ISTANBUL_LOG_DIR env var ile override edilebilir.
+        # Bu override testlerin izole `tmp_path` kullanmasını mümkün kılar —
+        # paylaşımlı `logs/app.log` üzerinde Windows handle kilit yarışını
+        # tetiklemez. Production'da env var set edilmez, default kullanılır.
+        log_dir_override = os.getenv("ISTANBUL_LOG_DIR")
+        if log_dir_override:
+            log_dir = Path(log_dir_override)
+        else:
+            log_dir = Path(__file__).parent.parent / "logs"
         log_dir.mkdir(exist_ok=True)
         max_bytes = int(os.getenv("LOG_MAX_BYTES", str(_DEFAULT_MAX_BYTES)))
         backup_count = int(os.getenv("LOG_BACKUP_COUNT", str(_DEFAULT_BACKUP_COUNT)))
@@ -128,6 +150,7 @@ def get_logger(name: str) -> logging.Logger:
             maxBytes=max_bytes,
             backupCount=backup_count,
             encoding="utf-8",
+            delay=True,   # lazy open — Windows kilit penceresini daraltır
         )
         fh.setLevel(logging.DEBUG)
         fh.setFormatter(fmt)

@@ -9,7 +9,10 @@
 target-version = "py310"
 line-length = 100
 
-# Hariç tutulanlar — auto-generated / 3rd party kod taranmaz.
+# Hariç tutulanlar — auto-generated / 3rd party kod / lokal arttıklar
+# taranmaz. .claude/worktrees Claude Code'un farklı oturumlardan kalan
+# geçici çalışma kopyaları; osmnx-lab ana proje haricinde bir laboratuvar
+# klasörü.
 extend-exclude = [
     "venv",
     "cache",
@@ -19,6 +22,8 @@ extend-exclude = [
     "data",
     "__pycache__",
     ".pytest_cache",
+    ".claude",
+    "osmnx-lab",
 ]
 
 [tool.ruff.lint]

@@ -8,6 +8,7 @@ env değeri ile uygulamayı çökertmesin).
 """
 from __future__ import annotations
 
+import contextlib
 import importlib
 import logging
 import sys
@@ -27,10 +28,8 @@ def _reset_named_logger(name: str) -> None:
     lg = logging.getLogger(name)
     for h in list(lg.handlers):
         lg.removeHandler(h)
-        try:
+        with contextlib.suppress(Exception):
             h.close()
-        except Exception:
-            pass
 
 
 def test_resolve_level_valid_names():
@@ -118,55 +117,62 @@ def _close_all_app_log_handlers():
             # RotatingFileHandler veya FileHandler tabanlı tüm dosya handler'ları
             if isinstance(h, logging.FileHandler):
                 lg.removeHandler(h)
-                try:
+                with contextlib.suppress(Exception):
                     h.close()
-                except Exception:
-                    pass
 
 
-def test_rotation_actually_happens(monkeypatch):
+def test_rotation_actually_happens(tmp_path, monkeypatch):
     """
-    Küçük maxBytes ile zorlayıp gerçek bir rotasyon dönüşünün diskte oluştuğunu
-    doğrula. logger.py log dosyasını sabit `src/../logs/app.log` yoluna yazıyor;
-    o yüzden tmp_path yerine gerçek log_dir'i kullanırız ve sonra temizleriz.
-    """
-    # Önceki testlerin Windows'ta tuttuğu app.log handle'larını kapat ki
-    # RotatingFileHandler dosyayı rename edebilsin (WinError 32 önleme).
-    _close_all_app_log_handlers()
+    Küçük maxBytes ile zorlayıp gerçek bir rotasyon dönüşünün diskte
+    oluştuğunu doğrula.
 
+    Windows-safe refactor:
+        Eski versiyon paylaşımlı `src/../logs/app.log` dosyasını kullanıyordu;
+        aynı anda başka bir process (Streamlit oturumu, başka test runner)
+        bu dosyayı açık tutuyorsa Windows `app.log → app.log.1` rename'i
+        WinError 32 ile düşürüyor — test koşullu olarak fail. Yeni versiyon
+        `ISTANBUL_LOG_DIR` env var override ile izole `tmp_path` kullanır;
+        global log dizinine hiç dokunmaz, paralel process'lerden bağımsız.
+    """
+    # İzole log dizinine yönlendir — bu test global logs/app.log'a dokunmaz.
+    monkeypatch.setenv("ISTANBUL_LOG_DIR", str(tmp_path))
     monkeypatch.setenv("LOG_MAX_BYTES", "512")
     monkeypatch.setenv("LOG_BACKUP_COUNT", "2")
+
+    # Önceki testlerden kalan handle'ları temizle (zaten artık bizim
+    # tmp_path'i kullanıyoruz ama belt-and-suspenders).
+    _close_all_app_log_handlers()
     logger_mod = _reload_logger()
     _reset_named_logger("test.actual_rotation")
 
-    log_path = Path(logger_mod.__file__).parent.parent / "logs" / "app.log"
-    backup1 = log_path.with_name("app.log.1")
-    # Bu testten kalan eski backup'ları temizle (test izolasyonu)
-    for p in [backup1, log_path.with_name("app.log.2"), log_path.with_name("app.log.3")]:
-        if p.exists():
-            try:
-                p.unlink()
-            except PermissionError:
-                pass
+    log_path = tmp_path / "app.log"
+    backup1 = tmp_path / "app.log.1"
 
     log = logger_mod.get_logger("test.actual_rotation")
     # 512 byte'ı geçecek kadar mesaj yaz (her satır > 80 byte)
     for i in range(100):
         log.info(f"row {i} - filler line long enough to bust 512 bytes " + "x" * 50)
 
+    # Handle'ı kapat ki dosya boyutu doğru ölçülsün ve OS flush etsin
+    for h in list(log.handlers):
+        if isinstance(h, RotatingFileHandler):
+            with contextlib.suppress(Exception):
+                h.close()
+
     # En az bir rotasyon backup'ı oluşmuş olmalı
-    assert backup1.exists(), "Rotasyon tetiklenmedi; app.log.1 oluşmadı"
+    assert backup1.exists(), (
+        f"Rotasyon tetiklenmedi; {backup1} oluşmadı. "
+        f"tmp_path içeriği: {list(tmp_path.iterdir())}"
+    )
+    # Ana dosya yine var ve boyutu maxBytes civarı
+    assert log_path.exists()
 
     # Cleanup
     for h in list(log.handlers):
         log.removeHandler(h)
-        try:
+        with contextlib.suppress(Exception):
             h.close()
-        except Exception:
-            pass
     for p in [backup1, log_path.with_name("app.log.2")]:
         if p.exists():
-            try:
+            with contextlib.suppress(PermissionError):
                 p.unlink()
-            except PermissionError:
-                pass
