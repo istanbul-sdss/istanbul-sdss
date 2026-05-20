@@ -108,6 +108,21 @@ DEFAULT_SPEED_KPH = {
     MODE_DRIVE: 30.0,
 }
 
+# Haversine fallback için mod-farkındalıklı detour faktörleri.
+#
+# Yürüyüş paths'leri ara sokaklarda dolaşır → ~1.4 detour (literatür: Bovy &
+# Den Adel 1985, Voss 1992 şehir-içi yaya çalışmaları).
+# Araç paths'leri arter/otoyol kullanır → ~1.25 detour (Cole 1971 highway
+# detour studies).
+#
+# H-Opt-3 düzeltmesi: önceki sürüm her iki modda da HAVERSINE_DETOUR_FACTOR
+# (1.4) kullanıyordu → driving fallback'i sistematik %5-10 fazla süre
+# raporluyordu. Mod-spesifik faktörle bu sapma kapanır.
+DEFAULT_DETOUR_FACTOR = {
+    MODE_WALK:  1.4,
+    MODE_DRIVE: 1.25,
+}
+
 
 def apply_speed(G: nx.MultiDiGraph, speed_kph: float) -> nx.MultiDiGraph:
     """
@@ -500,10 +515,11 @@ def compute_od_matrix(
 def compute_od_matrix_haversine(
     binalar_gdf: gpd.GeoDataFrame,
     toplanma_gdf: gpd.GeoDataFrame,
-    detour_factor: float = HAVERSINE_DETOUR_FACTOR,
+    detour_factor: float | None = None,
     travel_speed_kph: float | None = None,
     progress_cb: Callable | None = None,
     walk_speed_kph: float | None = None,   # backward-compat alias
+    transport_mode: str | None = None,
 ) -> np.ndarray:
     """
     Sokak ağı yedeği: kuş uçuşu mesafe × detour faktörü ile süre tahmini.
@@ -511,8 +527,14 @@ def compute_od_matrix_haversine(
     Sokak ağı yüklenemediğinde (Overpass tüm mirror'larda 504, internet yok,
     OSM verisi cevapsız kaldı) acil durum aracının çalışmaya devam etmesi
     kritik. Bu fonksiyon UTM projeksiyonunda Öklid mesafesi hesaplar, detour
-    faktörüyle çarpar (varsayılan 1.4 — şehir-içi tipik), hıza bölerek süre
-    üretir.
+    faktörüyle çarpar, hıza bölerek süre üretir.
+
+    Detour faktörü çözümleme (öncelik sırası):
+      1. `detour_factor` explicit verildi → onu kullan
+      2. `transport_mode` verildi ve DEFAULT_DETOUR_FACTOR'da var
+         → mod-spesifik faktör (walk=1.4, drive=1.25)
+      3. Hiçbiri → eski default (HAVERSINE_DETOUR_FACTOR=1.4)
+    Geriye uyumluluk: eski çağrılar (transport_mode'suz) aynı davranır.
 
     `travel_speed_kph`: walk için 4.8, drive için 30 (kullanıcı override
     edebilir). `walk_speed_kph` eski alias, backward-compat için tutuluyor.
@@ -526,6 +548,12 @@ def compute_od_matrix_haversine(
         if progress_cb:
             progress_cb(msg)
 
+    # Mod-farkındalıklı detour çözümleme (H-Opt-3)
+    if detour_factor is None:
+        detour_factor = DEFAULT_DETOUR_FACTOR.get(
+            transport_mode, HAVERSINE_DETOUR_FACTOR
+        )
+
     _speed_arg = travel_speed_kph if travel_speed_kph is not None else walk_speed_kph
     speed = float(_speed_arg) if _speed_arg else WALK_SPEED_KPH
     if speed <= 0:
@@ -533,8 +561,9 @@ def compute_od_matrix_haversine(
 
     n_bina = len(binalar_gdf)
     n_alan = len(toplanma_gdf)
+    _mode_str = f", mode={transport_mode}" if transport_mode else ""
     cb(f"Haversine OD (yedek mod): {n_bina:,} bina × {n_alan} alan, "
-       f"detour={detour_factor}, hız={speed} km/h")
+       f"detour={detour_factor}, hız={speed} km/h{_mode_str}")
 
     b_utm = binalar_gdf.to_crs(UTM_IST).geometry
     t_utm = toplanma_gdf.to_crs(UTM_IST).geometry

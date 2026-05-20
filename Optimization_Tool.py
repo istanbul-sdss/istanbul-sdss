@@ -179,7 +179,7 @@ st.sidebar.markdown(
       {"✅" if current_step >= 1 else "⬜"} &nbsp; 1 · Load data<br>
       {"✅" if current_step >= 2 else "⬜"} &nbsp; 2 · OD matrix<br>
       {"✅" if current_step >= 3 else "⬜"} &nbsp; 3 · Optimize<br>
-      {"✅" if current_step >= 3 else "⬜"} &nbsp; 4 · Review results
+      {"✅" if current_step >= 4 else "⬜"} &nbsp; 4 · Review results
     </div>
     """,
     unsafe_allow_html=True,
@@ -1005,6 +1005,7 @@ if _have("opt_buildings"):
                             st.session_state.opt_buildings,
                             st.session_state.opt_assembly,
                             travel_speed_kph=float(travel_speed),
+                            transport_mode=mode,
                             progress_cb=od_cb,
                         )
                     st.session_state.opt_od_matrix = od
@@ -1302,6 +1303,18 @@ if _have("opt_od_matrix"):
         max_walk_cap = None    # cutoff yok
         enforce_cap  = False   # solver tarafında hard limit kısıtı uygulanmaz
 
+        # Stale-banner için CANLI girdi imzası — Step 3 her render olduğunda
+        # güncellenir. Step 4 bu key'i okuyup `opt_result_signature` (solve
+        # anındaki snapshot) ile karşılaştırarak parametre değişikliğini
+        # tespit eder. Önceki sürüm `dir()` ile yerel scope'u kontrol
+        # ediyordu — Streamlit script rerun'da scope kaybolduğunda
+        # `solver_mode in dir() == False` döndüğünden imza diff'i
+        # false-positive üretebiliyordu (H-Opt-2). Session_state daha
+        # deterministik.
+        st.session_state["opt_current_inputs"] = (
+            int(p), amac, bool(capacity), solver_mode,
+        )
+
         st.markdown(
             f'<div style="background:#F1F5F9;border:1px solid #E2E8F0;'
             f'border-radius:8px;padding:10px 14px;color:#334155;'
@@ -1408,62 +1421,84 @@ if _have("opt_od_matrix"):
                 if p_min > p_max:
                     st.warning("p_min cannot exceed p_max.")
                 else:
-                    with st.spinner("Running sensitivity analysis…"):
-                        try:
-                            df_sens = duyarlilik_analizi(
-                                st.session_state.opt_od_matrix,
-                                st.session_state.opt_buildings,
-                                st.session_state.opt_assembly,
-                                p_aralik=range(p_min, p_max + 1),
-                                kapasite=capacity,
-                                max_sure_dk=(float(max_walk_cap) if enforce_cap else None),
-                                amac=amac,
-                                solver=solver_mode,
-                                time_limit_sn=effective_time_limit,
-                                allow_fallback=allow_fallback,
-                            )
-                            df_sens_en = to_english(df_sens)
-                            st.dataframe(
-                                df_sens_en,
-                                width="stretch",
-                                hide_index=True,
-                            )
+                    # Spinner + adım-adım progress bar — büyük ilçede 10 p × dk
+                    # uzunluğunda analiz tek bir spinner'la donmuş gibi
+                    # görünüyordu (H-Opt-6). Şimdi her p başlangıcında bar +
+                    # status text güncellenir.
+                    _sens_progress = st.progress(0.0)
+                    _sens_status = st.empty()
 
-                            # plot_cols dışarıda hesaplanıyor ki except dalında da görünür olsun
-                            plot_cols = [
-                                c for c in ["Avg Time (min)", "Max Time (min)"]
-                                if c in df_sens_en.columns
-                            ]
+                    def _sens_iter_cb(i: int, total: int, p_val: int) -> None:
+                        # i = 0..total-1, p_val = aktif p değeri
+                        _sens_progress.progress((i + 0) / max(total, 1))
+                        _sens_status.info(
+                            f"Solving p = **{p_val}** "
+                            f"({i + 1}/{total})…"
+                        )
 
-                            # Plot
-                            if plot_cols:
-                                try:
-                                    import plotly.express as px
-                                    fig = px.line(
-                                        df_sens_en,
-                                        x="p",
-                                        y=plot_cols,
-                                        markers=True,
-                                        title="Travel time vs. p",
-                                        color_discrete_sequence=[
-                                            TOKENS["accent"], TOKENS["danger"],
-                                        ],
-                                    )
-                                    fig.update_layout(
-                                        font=dict(family="Inter, sans-serif"),
-                                        plot_bgcolor="white",
-                                        paper_bgcolor="white",
-                                        margin=dict(l=20, r=20, t=50, b=20),
-                                        height=360,
-                                        xaxis=dict(gridcolor="#F1F5F9"),
-                                        yaxis=dict(gridcolor="#F1F5F9", title="Minutes"),
-                                    )
-                                    st.plotly_chart(fig, width="stretch")
-                                except ImportError:
-                                    st.line_chart(df_sens_en.set_index("p")[plot_cols])
+                    try:
+                        df_sens = duyarlilik_analizi(
+                            st.session_state.opt_od_matrix,
+                            st.session_state.opt_buildings,
+                            st.session_state.opt_assembly,
+                            p_aralik=range(p_min, p_max + 1),
+                            kapasite=capacity,
+                            max_sure_dk=(float(max_walk_cap) if enforce_cap else None),
+                            amac=amac,
+                            solver=solver_mode,
+                            time_limit_sn=effective_time_limit,
+                            allow_fallback=allow_fallback,
+                            iter_cb=_sens_iter_cb,
+                        )
+                        _sens_progress.progress(1.0)
+                        _sens_status.success(
+                            f"Sensitivity analysis complete "
+                            f"({p_max - p_min + 1} runs)."
+                        )
+                        df_sens_en = to_english(df_sens)
+                        st.dataframe(
+                            df_sens_en,
+                            width="stretch",
+                            hide_index=True,
+                        )
 
-                        except Exception as e:
-                            st.error(f"Sensitivity analysis failed: {e}")
+                        # plot_cols dışarıda hesaplanıyor ki except dalında da görünür olsun
+                        plot_cols = [
+                            c for c in ["Avg Time (min)", "Max Time (min)"]
+                            if c in df_sens_en.columns
+                        ]
+
+                        # Plot
+                        if plot_cols:
+                            try:
+                                import plotly.express as px
+                                fig = px.line(
+                                    df_sens_en,
+                                    x="p",
+                                    y=plot_cols,
+                                    markers=True,
+                                    title="Travel time vs. p",
+                                    color_discrete_sequence=[
+                                        TOKENS["accent"], TOKENS["danger"],
+                                    ],
+                                )
+                                fig.update_layout(
+                                    font=dict(family="Inter, sans-serif"),
+                                    plot_bgcolor="white",
+                                    paper_bgcolor="white",
+                                    margin=dict(l=20, r=20, t=50, b=20),
+                                    height=360,
+                                    xaxis=dict(gridcolor="#F1F5F9"),
+                                    yaxis=dict(gridcolor="#F1F5F9", title="Minutes"),
+                                )
+                                st.plotly_chart(fig, width="stretch")
+                            except ImportError:
+                                st.line_chart(df_sens_en.set_index("p")[plot_cols])
+
+                    except Exception as e:
+                        _sens_progress.empty()
+                        _sens_status.empty()
+                        st.error(f"Sensitivity analysis failed: {e}")
 
         st.markdown(
             '<div style="height:12px"></div>',
@@ -1536,14 +1571,20 @@ if _have("opt_result"):
     # üretildiğindeki (p, amac, capacity, solver) ile UI'daki güncel
     # değerleri karşılaştır. Fark varsa kullanıcı sonucu yorumlarken
     # yanlış parametre setini sandığını bilmesin.
+    #
+    # H-Opt-2 düzeltmesi: önceki sürüm `dir()` ile yerel scope'u sorgulayıp
+    # `p`, `amac`, vs. tanımlı mı kontrol ediyordu. Streamlit script rerun'unda
+    # Step 3 bloğu çalışmadıysa (örn. opt_buildings None iken eski result
+    # session'da kalmışsa) bu kontroller False döner, sonuç solver_mode için
+    # None ile karşılaştırma → false-positive uyarı. Şimdi Step 3 her render
+    # olduğunda `opt_current_inputs` yazıyor; burada onu okuyoruz.
     _res_sig = st.session_state.get("opt_result_signature")
-    _current_res_sig = (
-        int(p) if "p" in dir() else int(result.p),
-        amac if "amac" in dir() else result.amac,
-        bool(capacity) if "capacity" in dir() else result.kapasite_aktif,
-        solver_mode if "solver_mode" in dir() else None,
-    )
-    if _res_sig is not None and _res_sig != _current_res_sig:
+    _current_res_sig = st.session_state.get("opt_current_inputs")
+    if (
+        _res_sig is not None
+        and _current_res_sig is not None
+        and _res_sig != _current_res_sig
+    ):
         _diff = []
         if _res_sig[0] != _current_res_sig[0]:
             _diff.append(f"p ({_res_sig[0]} → {_current_res_sig[0]})")

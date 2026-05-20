@@ -96,3 +96,62 @@ def test_detour_factor_default_is_realistic():
         f"HAVERSINE_DETOUR_FACTOR={HAVERSINE_DETOUR_FACTOR} şehir-içi yaya "
         f"literatür aralığı (1.3-1.5) dışında."
     )
+
+
+# ── H-Opt-3: Mod-farkındalıklı detour ─────────────────────────────────────
+def test_mode_aware_detour_walk_vs_drive():
+    """
+    transport_mode="walk" → 1.4 detour; "drive" → 1.25 detour.
+    Aynı mesafe ve hız için drive süresi walk süresinden DAHA AZ olmalı
+    (detour daha düşük çünkü araç arter/otoyol kullanır).
+    """
+    from src.optimizer.od_matrix import DEFAULT_DETOUR_FACTOR, MODE_DRIVE, MODE_WALK
+
+    assert DEFAULT_DETOUR_FACTOR[MODE_WALK] > DEFAULT_DETOUR_FACTOR[MODE_DRIVE], (
+        "Yaya detour'u araç detour'undan büyük olmalı (literatür beklentisi)"
+    )
+
+    binalar, alanlar = _make_gdfs(
+        b_coords=[(29.000, 41.000)], t_coords=[(29.005, 41.000)]
+    )
+    # Hızı sabit tut; sadece detour mod'a göre değişsin
+    od_walk = compute_od_matrix_haversine(
+        binalar, alanlar, travel_speed_kph=5.0, transport_mode=MODE_WALK
+    )
+    od_drive = compute_od_matrix_haversine(
+        binalar, alanlar, travel_speed_kph=5.0, transport_mode=MODE_DRIVE
+    )
+    # walk_dur * (drive_detour/walk_detour) == drive_dur
+    ratio = DEFAULT_DETOUR_FACTOR[MODE_DRIVE] / DEFAULT_DETOUR_FACTOR[MODE_WALK]
+    assert abs(float(od_drive[0, 0]) - float(od_walk[0, 0]) * ratio) < 0.01
+
+
+def test_explicit_detour_overrides_mode():
+    """detour_factor explicit verildiğinde transport_mode önemsiz."""
+    binalar, alanlar = _make_gdfs(
+        b_coords=[(29.000, 41.000)], t_coords=[(29.005, 41.000)]
+    )
+    od_drive = compute_od_matrix_haversine(
+        binalar, alanlar, detour_factor=2.0, transport_mode="drive"
+    )
+    od_walk = compute_od_matrix_haversine(
+        binalar, alanlar, detour_factor=2.0, transport_mode="walk"
+    )
+    # detour=2.0 her iki modda da aynı → süreler eşit (speed default)
+    assert abs(float(od_drive[0, 0]) - float(od_walk[0, 0])) < 0.01
+
+
+def test_no_mode_no_factor_uses_legacy_default():
+    """
+    transport_mode YOK + detour_factor YOK → eski HAVERSINE_DETOUR_FACTOR
+    kullanılır (1.4). Backward-compat zorunlu.
+    """
+    binalar, alanlar = _make_gdfs(
+        b_coords=[(29.000, 41.000)], t_coords=[(29.005, 41.000)]
+    )
+    od_legacy = compute_od_matrix_haversine(binalar, alanlar)
+    od_walk_explicit = compute_od_matrix_haversine(
+        binalar, alanlar, transport_mode="walk"
+    )
+    # Walk default == legacy default (1.4) → süreler eşit
+    assert abs(float(od_legacy[0, 0]) - float(od_walk_explicit[0, 0])) < 0.01

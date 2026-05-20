@@ -1138,19 +1138,34 @@ def duyarlilik_analizi(
     solver: SolverMode = "auto",
     time_limit_sn: int | None = None,
     allow_fallback: bool = True,
+    iter_cb: Callable[[int, int, int], None] | None = None,
 ) -> pd.DataFrame:
     """
     Farklı p değerleri için çözüm kalitesini karşılaştırır.
     Kaç toplanma alanının 'yeterli' olduğunu bulmak için kullanılır.
 
     solver/time_limit_sn/allow_fallback parametreleri her p için coz()'a iletilir.
+
+    iter_cb: Per-p ilerleme callback'i. Her p iterasyonunun BAŞINDA
+             `iter_cb(i, total, p_value)` olarak çağrılır. Streamlit UI'sı
+             bunu `st.progress` ile bağlayıp donmuş izlenimini önler.
+             Önceden hiç callback yoktu; büyük ilçede 10 p × dakikalar
+             süren analizler tek bir "spinner" arkasında kalıyordu (H-Opt-6).
     """
     if p_aralik is None:
         n_alan = od.shape[1]
         p_aralik = range(1, min(n_alan + 1, 16))
 
+    import contextlib
+
+    p_list = list(p_aralik)
+    total = len(p_list)
     satirlar = []
-    for p in p_aralik:
+    for i, p in enumerate(p_list):
+        if iter_cb is not None:
+            # Callback hatası analizi durdurmasın (UI bağlamı kopmuş olabilir)
+            with contextlib.suppress(Exception):
+                iter_cb(i, total, p)
         sonuc = coz(
             od, binalar_gdf, toplanma_gdf,
             p=p, kapasite=kapasite, max_sure_dk=max_sure_dk,

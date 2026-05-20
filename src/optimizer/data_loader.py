@@ -274,6 +274,12 @@ def _generate_building_labels(
 
     labels: list[str] = []
     mah_counter: dict[str, int] = {}
+    # OSM'de aynı `name` ile çoklu bina var (örn. "Migros", "MASKO"). Önceki
+    # versiyon ikisini de aynı etikete çeviriyordu → Step 4 building
+    # selectbox'ı `set(label_options)` ile dedup ettiği için ikinci binaya
+    # ulaşılamıyordu (H-Opt-8). Çözüm: tekrarlı isimlere #2, #3 suffix ekle.
+    # İlk geliş suffix'siz kalır (geriye uyumlu).
+    name_counter: dict[str, int] = {}
 
     for idx in names.index:
         name_clean = str(names.loc[idx]).strip()
@@ -281,7 +287,12 @@ def _generate_building_labels(
 
         # 1. OSM name varsa ve "yes"/"building" gibi anlamsız değerse atla
         if name_clean and name_clean.lower() not in _MEANINGLESS_NAMES:
-            labels.append(name_clean[:50])
+            truncated = name_clean[:50]
+            name_counter[truncated] = name_counter.get(truncated, 0) + 1
+            if name_counter[truncated] > 1:
+                labels.append(f"{truncated} #{name_counter[truncated]}")
+            else:
+                labels.append(truncated)
             continue
 
         # 2. Mahalle + sıra
