@@ -1,16 +1,27 @@
 """
-Optimization_Tool.py — Assembly Area Assignment Optimization (English UI)
+Optimization_Tool.py — Assignment Optimization (English UI)
 
-Professional, step-based Streamlit app for P-Median optimization of
-earthquake assembly areas:
+Professional, step-based Streamlit app for generic P-Median facility-location
+optimization. Pre-configured for earthquake assembly area planning but the
+underlying math (Hakimi 1964) handles any "assign demand points to a chosen
+number of facilities" problem — schools, clinics, depots, service centers.
 
-  1. Data      — upload buildings + assembly areas (Excel or GeoJSON)
+Workflow:
+  1. Data      — upload buildings (demand) + assembly areas (facilities)
+                 from Excel or GeoJSON
   2. OD Matrix — build a walking or driving OD matrix via OSMnx
   3. Optimize  — solve P-Median (ILP or K-Medoids) with optional capacity
   4. Results   — KPIs, coverage chart, assignments, map, exports
 
-Transport mode (Step 2) is user-selectable: Walking is the AFAD default for
-emergency assembly planning; Driving is offered for comparative analysis.
+Generic-use note (for non-earthquake contexts):
+  • "Buildings" → swap in any demand points (population centers, customer
+    locations). Weight column = demand magnitude.
+  • "Assembly areas" → swap in any facilities (schools, hospitals, depots).
+    area_m² + density slider together define capacity.
+  • Driving mode + arbitrary speed slider supports non-walk contexts.
+
+Transport mode (Step 2): Walking is the AFAD default for emergency assembly
+planning; Driving is offered for comparative analysis.
 
 Run:
     streamlit run Optimization_Tool.py
@@ -256,13 +267,15 @@ st.sidebar.markdown(
 # HERO
 # ════════════════════════════════════════════════════════════════════════════
 cards.hero(
-    eyebrow="Decision Support · Earthquake Preparedness",
-    title="Assembly Area Assignment Optimization",
+    eyebrow="Decision Support · Facility Location",
+    title="Assignment Optimization (p-Median)",
     subtitle=(
-        "Allocate buildings to the optimal set of earthquake assembly areas "
-        "with a capacity-aware P-Median model. Choose walking (AFAD default) "
-        "or driving (comparative analysis), and balance coverage, average "
-        "travel time, and optional capacity in a single run."
+        "Assign demand points (buildings) to a chosen number of facilities "
+        "(assembly areas) using a capacity-aware P-Median model. The tool is "
+        "pre-configured for earthquake preparedness — AFAD m²/person capacity, "
+        "walking / driving travel times — but the underlying math (Hakimi 1964) "
+        "applies to any facility-location problem (schools, clinics, depots, "
+        "service centers). Swap inputs to adapt."
     ),
 )
 
@@ -535,9 +548,9 @@ if _have("opt_buildings"):
 
     k1, k2, k3, k4 = st.columns(4, gap="small")
     with k1:
-        cards.kpi_card("Buildings", len(b))
+        cards.kpi_card("Buildings (demand)", len(b))
     with k2:
-        cards.kpi_card("Assembly areas", len(t))
+        cards.kpi_card("Assembly areas (facilities)", len(t))
     with k3:
         try:
             if len(b) and "weight" in b.columns and b["weight"].notna().any():
@@ -1284,15 +1297,43 @@ if _have("opt_od_matrix"):
                 value=False,
                 disabled=(not area_available),
                 help=(
-                    "Capacity is derived from assembly area m² via the AFAD "
-                    "standard (1.5 m²/person); assignments exceeding it are "
-                    "forbidden.\n\n"
+                    "Capacity is derived from assembly area m² via the "
+                    "density parameter (next field); assignments exceeding "
+                    "it are forbidden.\n\n"
                     "**This option is disabled** because the loaded assembly "
                     "areas have no valid m² data — capacity cannot be computed."
                     if not area_available else
-                    "Uses the AFAD standard (1.5 m²/person) to forbid "
-                    "assignments that exceed each area's capacity."
+                    "Uses the configurable density (m²/person, default 1.5) "
+                    "to forbid assignments that exceed each area's capacity."
                 ),
+            )
+
+        # Yoğunluk varsayımı (m²/kişi) — kapasite kapasitesinin temelini oluşturur.
+        # AFAD literatürü:
+        #   • 1.0 m²/kişi — yüksek-yoğunluk acil (kısa süreli, max kapsama)
+        #   • 1.5 m²/kişi — AFAD pratik acil toplanma (default — eski sabit davranış)
+        #   • 2.5 m²/kişi — AFAD uzun süreli barınma standardı (daha rahat)
+        # Karşılaştırmalı analiz: aynı problemi farklı yoğunluklarla çöz, kapasite
+        # yetmezliği nerelerde ortaya çıkıyor incele.
+        m2_per_person = 1.5  # disabled iken bile downstream'e şeffaf sabit gönder
+        if area_available:
+            from src.config.settings import AFAD_M2_PER_PERSON as _AFAD_DEFAULT
+            m2_per_person = st.number_input(
+                "Density (m²/person)",
+                min_value=0.5,
+                max_value=5.0,
+                value=float(_AFAD_DEFAULT),
+                step=0.1,
+                key="opt_m2_per_person",
+                help=(
+                    "How many m² each person needs in the assembly area. "
+                    "Capacity = area_m² / density.\n\n"
+                    "• **1.0** — high-density emergency (short-term, max coverage)\n"
+                    "• **1.5** — AFAD assembly standard (default)\n"
+                    "• **2.5** — AFAD long-term shelter standard (more comfort)\n\n"
+                    "Only used when Capacity constraint is ON."
+                ),
+                disabled=(not capacity),
             )
 
         # Akademik tercih: hard walking-time limit kaldırıldı. Tüm
@@ -1311,8 +1352,12 @@ if _have("opt_od_matrix"):
         # `solver_mode in dir() == False` döndüğünden imza diff'i
         # false-positive üretebiliyordu (H-Opt-2). Session_state daha
         # deterministik.
+        # Stale-banner signature. Density sadece capacity ON iken anlamlı —
+        # OFF iken None'a normalize ediyoruz ki density slider değişimi
+        # capacity OFF iken stale uyarısı tetiklemesin.
+        _live_density = float(m2_per_person) if capacity else None
         st.session_state["opt_current_inputs"] = (
-            int(p), amac, bool(capacity), solver_mode,
+            int(p), amac, bool(capacity), solver_mode, _live_density,
         )
 
         st.markdown(
@@ -1518,10 +1563,24 @@ if _have("opt_od_matrix"):
             st.session_state.opt_logs = []
             with st.spinner(f"Running optimization (p={p}) — this may take a moment…"):
                 try:
+                    # Kullanıcı seçtiği yoğunluğa göre kapasite kolonunu
+                    # yeniden hesapla. Capacity OFF iken bu dokunulmaz; ama
+                    # ON iken hard-coded 1.5 yerine slider değeri kullanılır.
+                    assembly_for_solve = st.session_state.opt_assembly
+                    if capacity and "area_m2" in assembly_for_solve.columns:
+                        from src.optimizer.population_estimator import (
+                            estimate_capacity_afad,
+                        )
+                        assembly_for_solve = assembly_for_solve.copy()
+                        assembly_for_solve["kapasite"] = estimate_capacity_afad(
+                            assembly_for_solve["area_m2"],
+                            m2_per_person=float(m2_per_person),
+                        )
+
                     result = coz(
                         st.session_state.opt_od_matrix,
                         st.session_state.opt_buildings,
-                        st.session_state.opt_assembly,
+                        assembly_for_solve,
                         p=int(p),
                         kapasite=capacity,
                         max_sure_dk=(float(max_walk_cap) if enforce_cap else None),
@@ -1532,11 +1591,16 @@ if _have("opt_od_matrix"):
                         allow_fallback=allow_fallback,
                     )
                     st.session_state.opt_result = result
+                    # Kullanılan yoğunluğu kaydet — Excel + report için
+                    st.session_state["opt_m2_per_person_used"] = (
+                        float(m2_per_person) if capacity else None
+                    )
                     # Stale-banner: Step 3 sonucu için signature kaydet.
                     # Kullanıcı sonra p / amac / capacity / solver değişirse
                     # Step 4 sonuç ekranında uyarı görünür.
                     st.session_state["opt_result_signature"] = (
                         int(p), amac, bool(capacity), solver_mode,
+                        float(m2_per_person) if capacity else None,
                     )
 
                     # Fizibilite uyarısı varsa kullanıcıya göster (kapasite/ulaşılabilirlik)
@@ -1559,6 +1623,100 @@ if _have("opt_od_matrix"):
                 except Exception as e:
                     st.error(f"Optimization error: {e}")
                     log.exception("Optimization error")
+
+        # ── Compare: Capacity ON vs OFF ─────────────────────────────────
+        # Akademik / danışman gereksinimi: aynı p ve hedef altında kapasite
+        # kısıtının nasıl bir fark yarattığını yan-yana göster. Aynı problem
+        # iki kez çözülür (capacity=False, capacity=True with current
+        # density slider). KPI'lar, açılan alanlar, ulaşılamaz binalar
+        # karşılaştırılır → tez raporunda "Sensitivity Analysis" figürü.
+        with st.expander("📊 Compare capacity ON vs OFF (advanced)"):
+            st.markdown(
+                "Run the same problem twice — once **without** capacity "
+                "constraints, once **with**. The diff shows how AFAD-style "
+                "capacity reshapes assignments, walking times, and which "
+                "areas get opened. Useful for thesis sensitivity analysis."
+            )
+            cmp_disabled = not area_available
+            if cmp_disabled:
+                st.info(
+                    "Capacity compare is disabled because the loaded assembly "
+                    "areas have no valid m² data — there is no capacity to "
+                    "constrain against."
+                )
+            if st.button(
+                "🔬 Run capacity comparison (2 solves)",
+                key="opt_btn_cmp_cap",
+                disabled=cmp_disabled or invalid_combo,
+                width="stretch",
+            ):
+                st.session_state.opt_logs = []
+                with st.spinner(
+                    f"Comparing capacity scenarios (p={p}, density="
+                    f"{m2_per_person:.2f} m²/person) — 2 solves…"
+                ):
+                    try:
+                        from src.optimizer.population_estimator import (
+                            estimate_capacity_afad,
+                        )
+                        # OFF: original GDF (kapasite kolonu ne olursa olsun
+                        # kullanılmayacak — coz() kapasite=False ile çağrılır)
+                        result_off = coz(
+                            st.session_state.opt_od_matrix,
+                            st.session_state.opt_buildings,
+                            st.session_state.opt_assembly,
+                            p=int(p),
+                            kapasite=False,
+                            max_sure_dk=None,
+                            amac=amac,
+                            progress_cb=log_cb,
+                            solver=solver_mode,
+                            time_limit_sn=effective_time_limit,
+                            allow_fallback=allow_fallback,
+                        )
+                        # ON: capacity recompute with slider density
+                        a_on = st.session_state.opt_assembly
+                        if "area_m2" in a_on.columns:
+                            a_on = a_on.copy()
+                            a_on["kapasite"] = estimate_capacity_afad(
+                                a_on["area_m2"],
+                                m2_per_person=float(m2_per_person),
+                            )
+                        result_on = coz(
+                            st.session_state.opt_od_matrix,
+                            st.session_state.opt_buildings,
+                            a_on,
+                            p=int(p),
+                            kapasite=True,
+                            max_sure_dk=None,
+                            amac=amac,
+                            progress_cb=log_cb,
+                            solver=solver_mode,
+                            time_limit_sn=effective_time_limit,
+                            allow_fallback=allow_fallback,
+                        )
+                        st.session_state["opt_compare_results"] = {
+                            "off": result_off,
+                            "on": result_on,
+                            "density": float(m2_per_person),
+                            "p": int(p),
+                            "amac": amac,
+                        }
+                        st.success(
+                            "✅ Comparison complete. See the **Capacity "
+                            "comparison** section in Step 4 below."
+                        )
+                        # Mevcut tek-sonuç akışını da güncel tut: kullanıcı
+                        # ON sonucunu birincil sayar (capacity-aware analiz).
+                        st.session_state.opt_result = result_on
+                        st.session_state["opt_m2_per_person_used"] = float(m2_per_person)
+                        st.session_state["opt_result_signature"] = (
+                            int(p), amac, True, solver_mode, float(m2_per_person),
+                        )
+                        st.rerun()
+                    except Exception as e:
+                        st.error(f"Comparison failed: {e}")
+                        log.exception("Capacity comparison error")
 
 
 # ════════════════════════════════════════════════════════════════════════════
@@ -1597,6 +1755,12 @@ if _have("opt_result"):
             )
         if _res_sig[3] != _current_res_sig[3]:
             _diff.append(f"solver ({_res_sig[3]} → {_current_res_sig[3]})")
+        # 5. eleman density — sadece capacity ON iken karşılaştırılır
+        if len(_res_sig) > 4 and len(_current_res_sig) > 4:
+            if _res_sig[4] != _current_res_sig[4]:
+                _old_d = "N/A" if _res_sig[4] is None else f"{_res_sig[4]:.2f}"
+                _new_d = "N/A" if _current_res_sig[4] is None else f"{_current_res_sig[4]:.2f}"
+                _diff.append(f"density m²/person ({_old_d} → {_new_d})")
         if _diff:
             st.warning(
                 "⚠ **Result is stale.** Parameters changed: "
@@ -1671,6 +1835,133 @@ if _have("opt_result"):
             f"optimal ILP solution. Consider relaxing constraints (capacity, "
             f"p) if you need the exact optimum."
         )
+
+    # ── Capacity ON vs OFF comparison ───────────────────────────────────────
+    # `opt_compare_results` Step 3'teki "Compare capacity ON vs OFF" butonu
+    # tıklandığında populate edilir. Sonuç yan-yana KPI tablosu + alan-seti
+    # diff. Akademik / tez raporu için sensitivity analizi.
+    _cmp = st.session_state.get("opt_compare_results")
+    if _cmp is not None:
+        st.markdown("---")
+        st.markdown(
+            f"### 🔬 Capacity sensitivity comparison\n"
+            f"_Same problem (p={_cmp['p']}, objective={_cmp['amac']}) "
+            f"solved with capacity OFF and capacity ON @ "
+            f"**{_cmp['density']:.2f} m²/person**._"
+        )
+        r_off = _cmp["off"]
+        r_on  = _cmp["on"]
+
+        # Sayı diff helper
+        def _fmt_diff(off_v: float, on_v: float, unit: str = "", precision: int = 1) -> str:
+            d = on_v - off_v
+            sign = "+" if d > 0 else ""
+            if abs(d) < 0.05 and precision <= 1:
+                return "≈ same"
+            return f"{sign}{d:.{precision}f}{unit}"
+
+        cmp_df = pd.DataFrame({
+            "Metric": [
+                "Avg travel time (min)",
+                "Max travel time (min)",
+                "P95 travel time (pop-w., min)",
+                "Pop-weighted avg time (min)",
+                "Coverage <10 min (%)",
+                "Pop coverage <10 min (%)",
+                "Unreachable buildings",
+                "Solve time (s)",
+                "Method",
+            ],
+            "Capacity OFF": [
+                f"{r_off.ort_sure_dk:.1f}",
+                f"{r_off.max_sure_dk:.1f}",
+                f"{r_off.p95_sure_dk:.1f}",
+                f"{r_off.agirlikli_ort_sure_dk:.1f}",
+                f"{r_off.kapsama_10dk_pct:.1f}",
+                f"{r_off.nufus_kapsama_10dk_pct:.1f}",
+                f"{r_off.ulasilamaz_sayisi:,}",
+                f"{r_off.cozum_suresi_sn:.1f}",
+                r_off.yontem,
+            ],
+            "Capacity ON": [
+                f"{r_on.ort_sure_dk:.1f}",
+                f"{r_on.max_sure_dk:.1f}",
+                f"{r_on.p95_sure_dk:.1f}",
+                f"{r_on.agirlikli_ort_sure_dk:.1f}",
+                f"{r_on.kapsama_10dk_pct:.1f}",
+                f"{r_on.nufus_kapsama_10dk_pct:.1f}",
+                f"{r_on.ulasilamaz_sayisi:,}",
+                f"{r_on.cozum_suresi_sn:.1f}",
+                r_on.yontem,
+            ],
+            "Δ (ON − OFF)": [
+                _fmt_diff(r_off.ort_sure_dk, r_on.ort_sure_dk, " min"),
+                _fmt_diff(r_off.max_sure_dk, r_on.max_sure_dk, " min"),
+                _fmt_diff(r_off.p95_sure_dk, r_on.p95_sure_dk, " min"),
+                _fmt_diff(r_off.agirlikli_ort_sure_dk, r_on.agirlikli_ort_sure_dk, " min"),
+                _fmt_diff(r_off.kapsama_10dk_pct, r_on.kapsama_10dk_pct, " pp"),
+                _fmt_diff(r_off.nufus_kapsama_10dk_pct, r_on.nufus_kapsama_10dk_pct, " pp"),
+                _fmt_diff(r_off.ulasilamaz_sayisi, r_on.ulasilamaz_sayisi, "", 0),
+                _fmt_diff(r_off.cozum_suresi_sn, r_on.cozum_suresi_sn, " s"),
+                "same" if r_off.yontem == r_on.yontem else f"{r_off.yontem} → {r_on.yontem}",
+            ],
+        })
+        st.dataframe(cmp_df, width="stretch", hide_index=True)
+
+        # Açılan alan-seti diff: hangi alanlar paylaşılıyor, ON'a özgü olan
+        # / OFF'a özgü olan? Karar destek raporu için kritik.
+        off_set = set(r_off.acik_alan_adlari)
+        on_set  = set(r_on.acik_alan_adlari)
+        shared = sorted(off_set & on_set)
+        only_off = sorted(off_set - on_set)
+        only_on  = sorted(on_set - off_set)
+
+        c_sh, c_off, c_on = st.columns(3, gap="small")
+        with c_sh:
+            cards.kpi_card("Shared areas (both)", len(shared))
+        with c_off:
+            cards.kpi_card("Only when OFF", len(only_off))
+        with c_on:
+            cards.kpi_card("Only when ON", len(only_on))
+
+        with st.expander("📋 Area set details (which areas opened where)"):
+            if shared:
+                st.markdown("**Opened in both scenarios:** " + ", ".join(shared))
+            if only_off:
+                st.markdown(
+                    f"**Only when capacity OFF** ({len(only_off)}): "
+                    + ", ".join(only_off)
+                )
+            if only_on:
+                st.markdown(
+                    f"**Only when capacity ON** ({len(only_on)}): "
+                    + ", ".join(only_on)
+                )
+
+        # Interpretation hint — jüri/okuyucu için yön çizgisi
+        delta_unreach = r_on.ulasilamaz_sayisi - r_off.ulasilamaz_sayisi
+        delta_avg = r_on.ort_sure_dk - r_off.ort_sure_dk
+        hints = []
+        if delta_unreach > 0:
+            hints.append(
+                f"Capacity tightness leaves **{delta_unreach:,} more "
+                f"buildings unreachable** (no area has spare seats within "
+                f"reach)."
+            )
+        if delta_avg > 0.5:
+            hints.append(
+                f"Average travel time rises by **{delta_avg:.1f} min** when "
+                f"capacity is enforced — population is pushed to less-ideal "
+                f"areas."
+            )
+        if only_on and not only_off:
+            hints.append(
+                "Capacity ON opens additional areas that OFF would skip "
+                "(larger / better-positioned for spreading demand)."
+            )
+        if hints:
+            st.info(" ".join(hints))
+        st.markdown("---")
 
     # KPI row — building-count metrics (mode-aware label'lar).
     # "Travel time" terimi hem walking hem driving senaryosunda nötr.
@@ -2059,6 +2350,7 @@ if _have("opt_result"):
                         "Objective",
                         "Travel-time cap",
                         "Capacity constraint",
+                        "Density assumption (m²/person)",
                         "p (areas opened)",
                         "Method",
                         "Convergence status",
@@ -2095,6 +2387,9 @@ if _have("opt_result"):
                          if result.max_sure_dk_kisit is None
                          else f"{result.max_sure_dk_kisit} min (legacy)"),
                         "Yes" if result.kapasite_aktif else "No",
+                        # Density: sadece capacity ON ise meaningful; OFF iken N/A
+                        (f"{st.session_state.get('opt_m2_per_person_used', 1.5):.2f}"
+                         if result.kapasite_aktif else "N/A (capacity off)"),
                         result.p,
                         result.yontem,
                         # Convergence status — solver tipine göre:
@@ -2198,8 +2493,13 @@ if _have("opt_result"):
                         "recommended for AFAD decision support. "
                         "Min-P95 is non-linear and is solved only by K-Medoids; "
                         "Min-Sum / Min-Max can be solved by either ILP or K-Medoids.",
-                        "When ON: Σᵢ wᵢ xᵢⱼ ≤ Cⱼ yⱼ with Cⱼ from AFAD standard "
-                        "(1.5 m²/person).",
+                        "When ON: Σᵢ wᵢ xᵢⱼ ≤ Cⱼ yⱼ with Cⱼ = area_m² / density. "
+                        "Density is a USER PARAMETER (m²/person, default 1.5 = "
+                        "AFAD assembly standard). Alternatives: 1.0 = high-density "
+                        "emergency, 2.5 = AFAD long-term shelter. Switching the "
+                        "density value lets the user run sensitivity analyses; the "
+                        "'Compare capacity ON vs OFF' button (Step 3) automates the "
+                        "side-by-side comparison.",
                         "Auto-selects PuLP + CBC ILP (provably optimal) for "
                         "≤5,000 buildings, otherwise greedy + 1-swap K-Medoids. "
                         "Advanced options let the user force ILP/K-Medoids, "
@@ -2293,6 +2593,141 @@ if _have("opt_result"):
                 })
                 open_df.to_excel(writer, sheet_name="9. Open Areas", index=False)
 
+                # ── 10. Capacity comparison (only if compare ran) ─────
+                # Akademik sensitivity figürü. `opt_compare_results` Step 3'te
+                # "Compare capacity ON vs OFF" tıklandıysa populate edilir.
+                _cmp_excel = st.session_state.get("opt_compare_results")
+                if _cmp_excel is not None:
+                    r_off_x = _cmp_excel["off"]
+                    r_on_x  = _cmp_excel["on"]
+
+                    def _diff(o, n, prec=1):
+                        d = n - o
+                        sgn = "+" if d > 0 else ""
+                        return f"{sgn}{d:.{prec}f}"
+
+                    cmp_excel_df = pd.DataFrame({
+                        "Metric": [
+                            "Density assumption (m²/person)",
+                            "p (areas opened)",
+                            "Objective",
+                            "— Travel-time metrics —",
+                            "Avg travel time (min)",
+                            "Max travel time (min)",
+                            "P95 travel time, pop-w. (min)",
+                            "Pop-weighted avg time (min)",
+                            "— Coverage —",
+                            "Coverage <5 min (%)",
+                            "Coverage <10 min (%)",
+                            "Coverage <30 min (%)",
+                            "Pop coverage <5 min (%)",
+                            "Pop coverage <10 min (%)",
+                            "Pop coverage <30 min (%)",
+                            "— Accessibility —",
+                            "Unreachable buildings",
+                            "Unreachable population",
+                            "— Solver —",
+                            "Method",
+                            "Solve time (s)",
+                            "ILP status",
+                            "Fallback reason",
+                            "— Areas —",
+                            "Areas opened (count)",
+                            "Areas opened (shared with both)",
+                            "Areas opened only in this scenario",
+                        ],
+                        "Capacity OFF": [
+                            "N/A",
+                            r_off_x.p,
+                            r_off_x.amac,
+                            "",
+                            f"{r_off_x.ort_sure_dk:.2f}",
+                            f"{r_off_x.max_sure_dk:.2f}",
+                            f"{r_off_x.p95_sure_dk:.2f}",
+                            f"{r_off_x.agirlikli_ort_sure_dk:.2f}",
+                            "",
+                            f"{r_off_x.kapsama_5dk_pct:.1f}",
+                            f"{r_off_x.kapsama_10dk_pct:.1f}",
+                            f"{r_off_x.kapsama_30dk_pct:.1f}",
+                            f"{r_off_x.nufus_kapsama_5dk_pct:.1f}",
+                            f"{r_off_x.nufus_kapsama_10dk_pct:.1f}",
+                            f"{r_off_x.nufus_kapsama_30dk_pct:.1f}",
+                            "",
+                            r_off_x.ulasilamaz_sayisi,
+                            f"{getattr(r_off_x, 'ulasilamaz_nufus', 0):,.0f}",
+                            "",
+                            r_off_x.yontem,
+                            f"{r_off_x.cozum_suresi_sn:.1f}",
+                            r_off_x.ilp_status or "—",
+                            r_off_x.fallback_nedeni or "—",
+                            "",
+                            len(r_off_x.acik_alan_adlari),
+                            len(set(r_off_x.acik_alan_adlari) & set(r_on_x.acik_alan_adlari)),
+                            "; ".join(
+                                sorted(set(r_off_x.acik_alan_adlari) - set(r_on_x.acik_alan_adlari))
+                            ) or "—",
+                        ],
+                        "Capacity ON": [
+                            f"{_cmp_excel['density']:.2f}",
+                            r_on_x.p,
+                            r_on_x.amac,
+                            "",
+                            f"{r_on_x.ort_sure_dk:.2f}",
+                            f"{r_on_x.max_sure_dk:.2f}",
+                            f"{r_on_x.p95_sure_dk:.2f}",
+                            f"{r_on_x.agirlikli_ort_sure_dk:.2f}",
+                            "",
+                            f"{r_on_x.kapsama_5dk_pct:.1f}",
+                            f"{r_on_x.kapsama_10dk_pct:.1f}",
+                            f"{r_on_x.kapsama_30dk_pct:.1f}",
+                            f"{r_on_x.nufus_kapsama_5dk_pct:.1f}",
+                            f"{r_on_x.nufus_kapsama_10dk_pct:.1f}",
+                            f"{r_on_x.nufus_kapsama_30dk_pct:.1f}",
+                            "",
+                            r_on_x.ulasilamaz_sayisi,
+                            f"{getattr(r_on_x, 'ulasilamaz_nufus', 0):,.0f}",
+                            "",
+                            r_on_x.yontem,
+                            f"{r_on_x.cozum_suresi_sn:.1f}",
+                            r_on_x.ilp_status or "—",
+                            r_on_x.fallback_nedeni or "—",
+                            "",
+                            len(r_on_x.acik_alan_adlari),
+                            len(set(r_off_x.acik_alan_adlari) & set(r_on_x.acik_alan_adlari)),
+                            "; ".join(
+                                sorted(set(r_on_x.acik_alan_adlari) - set(r_off_x.acik_alan_adlari))
+                            ) or "—",
+                        ],
+                        "Δ (ON − OFF)": [
+                            "—", "—", "—", "",
+                            _diff(r_off_x.ort_sure_dk, r_on_x.ort_sure_dk, 2),
+                            _diff(r_off_x.max_sure_dk, r_on_x.max_sure_dk, 2),
+                            _diff(r_off_x.p95_sure_dk, r_on_x.p95_sure_dk, 2),
+                            _diff(r_off_x.agirlikli_ort_sure_dk, r_on_x.agirlikli_ort_sure_dk, 2),
+                            "",
+                            _diff(r_off_x.kapsama_5dk_pct, r_on_x.kapsama_5dk_pct),
+                            _diff(r_off_x.kapsama_10dk_pct, r_on_x.kapsama_10dk_pct),
+                            _diff(r_off_x.kapsama_30dk_pct, r_on_x.kapsama_30dk_pct),
+                            _diff(r_off_x.nufus_kapsama_5dk_pct, r_on_x.nufus_kapsama_5dk_pct),
+                            _diff(r_off_x.nufus_kapsama_10dk_pct, r_on_x.nufus_kapsama_10dk_pct),
+                            _diff(r_off_x.nufus_kapsama_30dk_pct, r_on_x.nufus_kapsama_30dk_pct),
+                            "",
+                            _diff(r_off_x.ulasilamaz_sayisi, r_on_x.ulasilamaz_sayisi, 0),
+                            "—", "", "—",
+                            _diff(r_off_x.cozum_suresi_sn, r_on_x.cozum_suresi_sn),
+                            "—", "—", "",
+                            _diff(
+                                len(r_off_x.acik_alan_adlari),
+                                len(r_on_x.acik_alan_adlari),
+                                0,
+                            ),
+                            "—", "—",
+                        ],
+                    })
+                    cmp_excel_df.to_excel(
+                        writer, sheet_name="10. Capacity Comparison", index=False
+                    )
+
             xlsx_bytes = build_styled_workbook(_write_optimization_sheets)
             st.download_button(
                 "⬇️ Download Excel",
@@ -2302,10 +2737,13 @@ if _have("opt_result"):
                 key="opt_dl_xlsx",
                 width="stretch",
             )
+            _has_cmp_sheet = st.session_state.get("opt_compare_results") is not None
+            _sheet_count = "10 sheets" if _has_cmp_sheet else "9 sheets"
+            _cmp_suffix = " · Capacity Comparison" if _has_cmp_sheet else ""
             st.caption(
-                "9 sheets: Summary · Methodology · Assumptions · Assignment Guide · "
-                "Area Summary · Readable Assignments · Full Assignments · "
-                "Unreachable · Open Areas"
+                f"{_sheet_count}: Summary · Methodology · Assumptions · "
+                f"Assignment Guide · Area Summary · Readable Assignments · "
+                f"Full Assignments · Unreachable · Open Areas{_cmp_suffix}"
             )
         except Exception as e:
             st.warning(f"Excel export failed: {e}")
