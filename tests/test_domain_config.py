@@ -25,9 +25,12 @@ def test_default_domain_is_earthquake():
     assert DEFAULT_DOMAIN_KEY in DOMAINS
 
 
-def test_all_four_presets_exist():
-    """4 preset (earthquake/schools/healthcare/custom) tanımlı olmalı."""
-    expected = {"earthquake", "schools", "healthcare", "custom"}
+def test_only_two_presets_exist():
+    """
+    Tasarım kararı: 2 preset tutuyoruz — Earthquake (AFAD birincil) +
+    Custom (generic vocabulary). Schools/Healthcare üstünkörü hissi veriyordu.
+    """
+    expected = {"earthquake", "custom"}
     assert set(DOMAINS.keys()) == expected
 
 
@@ -84,22 +87,21 @@ def test_earthquake_has_all_afad_features_enabled():
     assert eq.show_afad_methodology is True
 
 
-def test_non_earthquake_domains_disable_tuik_when_appropriate():
+def test_custom_keeps_tuik_available():
     """
-    Schools/Healthcare için TÜİK upload anlamlı değil; gizlenmiş olmalı.
-    Custom için açık (kullanıcı dilerse kullanır).
+    Custom için TÜİK upload + footprint açık (kullanıcı dilerse Türkiye
+    senaryosu için kullanır). AFAD methodology paragrafları ise Earthquake'e
+    özgü — Custom'da kapalı.
     """
-    assert DOMAINS["schools"].show_tuik_upload is False
-    assert DOMAINS["healthcare"].show_tuik_upload is False
     assert DOMAINS["custom"].show_tuik_upload is True
+    assert DOMAINS["custom"].show_population_methods is True
+    assert DOMAINS["custom"].show_afad_methodology is False
 
 
-def test_labels_are_distinct_across_domains():
-    """Farklı domain'ler farklı demand label'ı kullanmalı — fark görünür."""
-    demand_labels = {DOMAINS[k].demand_label for k in DOMAINS}
-    assert len(demand_labels) >= 3, (
-        f"Demand label'ları çok benzer: {demand_labels}"
-    )
+def test_labels_are_distinct_between_presets():
+    """Earthquake ile Custom farklı demand/facility label'ı kullanmalı."""
+    assert DOMAINS["earthquake"].demand_label != DOMAINS["custom"].demand_label
+    assert DOMAINS["earthquake"].facility_label != DOMAINS["custom"].facility_label
 
 
 def test_optimization_tool_imports_domain_config():

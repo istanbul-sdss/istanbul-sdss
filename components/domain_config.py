@@ -1,23 +1,21 @@
 """
-components/domain_config.py — Multi-domain label & feature configuration.
+components/domain_config.py — Use-case label & feature configuration.
 
 Tool çekirdeği p-Median facility-location matematiği üzerine kurulu. Math
 generic ama UI başlangıçta tek bir senaryo (earthquake assembly) için
 hardcoded etiketlerle yazılmıştı. Bu modül domain-aware bir gevşeklik
 katmanı sağlar:
 
-  • Domain dropdown ile kullanıcı bir senaryo seçer (Earthquake, Schools,
-    Healthcare, Custom).
+  • Sidebar dropdown ile kullanıcı bir use-case seçer (Earthquake preset
+    veya Custom generic).
   • UI tüm "Buildings → Demand points (buildings)" ile başlayan etiketleri
     seçili domain'in sözlüğünden çeker.
-  • Earthquake-spesifik özellikler (TÜİK upload, footprint formülü, AFAD
-    methodology) sadece Earthquake/Custom'da görünür; diğer domain'lerde
-    gizlenip kullanıcı "kendi weight'inizi yükleyin" yönlendirmesi alır.
+  • AFAD-spesifik methodology paragraflarının Excel raporda göründüğü
+    Earthquake; Custom'da tüm yardımcılar açık ama AFAD detayları yok.
 
-Akademik sınır: matematik 100% generic, ama veri ön-hazırlığı (örn. school
-enrollment Excel'i, hospital bed kapasitesi) **kullanıcıdan beklenir** —
-bu aracın sunduğu uyarlanabilirliğin scope sınırıdır. Tez raporunda da
-bu açıkça belirtilir.
+Akademik sınır: matematik 100% generic, ama Earthquake dışı bir senaryo
+için weight/capacity verisi **kullanıcıdan beklenir** (kendi tablonuzu
+yükleyin). Tez raporunda da bu açıkça belirtilir.
 """
 from __future__ import annotations
 
@@ -77,14 +75,16 @@ class DomainConfig:
 
 EARTHQUAKE = DomainConfig(
     key="earthquake",
-    display_name="Earthquake Assembly (default)",
+    display_name="Earthquake Assembly (preset)",
     icon="🏚️",
-    hero_eyebrow="Decision Support · Earthquake Preparedness",
+    hero_eyebrow="Decision Support · Facility-Location Optimization",
     hero_subtitle=(
-        "Allocate buildings to the optimal set of earthquake assembly areas "
-        "with a capacity-aware P-Median model. Choose walking (AFAD default) "
-        "or driving (comparative analysis), and balance coverage, average "
-        "travel time, and optional capacity in a single run."
+        "A capacity-aware p-Median assignment optimizer (Hakimi 1964): "
+        "assign any set of demand points to a chosen number of facilities, "
+        "minimizing total travel time and optionally enforcing capacity. "
+        "This preset is AFAD-tuned for **earthquake assembly area planning** "
+        "(buildings → assembly areas, walking by default, m²/person capacity) — "
+        "switch the sidebar use case to **Custom** for fully generic vocabulary."
     ),
     demand_singular="building",
     demand_plural="buildings",
@@ -111,81 +111,6 @@ EARTHQUAKE = DomainConfig(
         "standard). Alternatives: 1.0 = high-density emergency, 2.5 = AFAD "
         "long-term shelter. The 'Compare capacity ON vs OFF' button (Step 3) "
         "automates side-by-side sensitivity."
-    ),
-)
-
-SCHOOLS = DomainConfig(
-    key="schools",
-    display_name="Schools (students → schools)",
-    icon="🏫",
-    hero_eyebrow="Decision Support · Educational Planning",
-    hero_subtitle=(
-        "Assign demand points (population centers / households) to a chosen "
-        "number of schools using a capacity-aware P-Median model. "
-        "Weights are interpreted as student counts; capacity reflects "
-        "classroom seats. Underlying solver is identical to the earthquake "
-        "preset — only the UI vocabulary adapts."
-    ),
-    demand_singular="population center",
-    demand_plural="population centers",
-    demand_label="Population centers (demand)",
-    facility_singular="school",
-    facility_plural="schools",
-    facility_label="Schools (facilities)",
-    weight_concept="student count",
-    weight_label="Avg students per center",
-    capacity_method_label="Density (m²/student)",
-    capacity_method_help_short=(
-        "How many m² each student needs in the school. "
-        "Capacity = area_m² / density. Typical: 2-4 m²/student."
-    ),
-    travel_label="Travel time",
-    step1_weight_section_title="Student demand",
-    step1_data_section_title="Population centers & schools",
-    show_population_methods=False,
-    show_tuik_upload=False,
-    show_afad_methodology=False,
-    methodology_capacity=(
-        "When ON: Σᵢ wᵢ xᵢⱼ ≤ Cⱼ yⱼ with Cⱼ = area_m² / density "
-        "(m²/student, user-tunable). For schools, density typically reflects "
-        "classroom-area-per-student (2–4 m² depending on jurisdiction)."
-    ),
-)
-
-HEALTHCARE = DomainConfig(
-    key="healthcare",
-    display_name="Healthcare (patients → hospitals/clinics)",
-    icon="🏥",
-    hero_eyebrow="Decision Support · Healthcare Access",
-    hero_subtitle=(
-        "Assign demand points (population centers) to a chosen number of "
-        "healthcare facilities using a capacity-aware P-Median model. "
-        "Weights are interpreted as patient demand; capacity reflects bed "
-        "or service-slot capacity. Solver is unchanged — UI adapts."
-    ),
-    demand_singular="population center",
-    demand_plural="population centers",
-    demand_label="Population centers (demand)",
-    facility_singular="facility",
-    facility_plural="facilities",
-    facility_label="Healthcare facilities",
-    weight_concept="patient demand",
-    weight_label="Avg patients per center",
-    capacity_method_label="Density (m²/patient or bed)",
-    capacity_method_help_short=(
-        "How many m² each patient/bed needs. Capacity = area_m² / density. "
-        "User-tunable for outpatient (smaller) vs inpatient (larger) services."
-    ),
-    travel_label="Travel time",
-    step1_weight_section_title="Patient demand",
-    step1_data_section_title="Population centers & healthcare facilities",
-    show_population_methods=False,
-    show_tuik_upload=False,
-    show_afad_methodology=False,
-    methodology_capacity=(
-        "When ON: Σᵢ wᵢ xᵢⱼ ≤ Cⱼ yⱼ with Cⱼ = area_m² / density. For "
-        "healthcare, the user supplies the per-patient-area assumption that "
-        "best matches their service type (outpatient vs inpatient)."
     ),
 )
 
@@ -228,10 +153,16 @@ CUSTOM = DomainConfig(
 
 
 # Ana sözlük: key → DomainConfig
+#
+# Tasarım kararı: sadece 2 preset tutuyoruz.
+#   • Earthquake — AFAD birincil senaryo, tam methodology
+#   • Custom    — generic vocabulary, tüm helpers açık
+# Daha önce Schools/Healthcare preset'leri vardı ama her biri eksik
+# data-preparation hikayesiyle "üstünkörü generic" hissi veriyordu.
+# Custom + Earthquake ikilisi yeterli ve dürüst: "AFAD için hazır, başka
+# her şey için kullanıcı kendi etiketlerini override eder."
 DOMAINS: dict[str, DomainConfig] = {
     "earthquake": EARTHQUAKE,
-    "schools":    SCHOOLS,
-    "healthcare": HEALTHCARE,
     "custom":     CUSTOM,
 }
 
