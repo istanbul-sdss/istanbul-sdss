@@ -40,6 +40,7 @@ import streamlit as st
 sys.path.insert(0, str(Path(__file__).parent))
 
 from components import cards
+from components.domain_config import DEFAULT_DOMAIN_KEY, DOMAINS, get_domain
 from components.styles import TOKENS, configure_page
 from components.translations import to_english
 from src.config.settings import CACHE_DIR, ISTANBUL_ILCELER
@@ -183,6 +184,39 @@ else:
 # ════════════════════════════════════════════════════════════════════════════
 cards.sidebar_brand()
 
+# Domain selector — UI'ın ne hakkında olduğunu söyleyen kök ayar. Etiket
+# sözlüğü components/domain_config.py'da. Earthquake default, değiştirilince
+# tüm KPI/section/help string'leri yeniden render olur. Math katmanı
+# (p_median, od_matrix) dokunulmaz — sadece görsel uyarlama.
+st.sidebar.markdown("### Use case")
+_domain_options = list(DOMAINS.keys())
+_domain_labels = {k: f"{DOMAINS[k].icon} {DOMAINS[k].display_name}" for k in _domain_options}
+_active_domain_key = st.sidebar.selectbox(
+    "Scenario",
+    options=_domain_options,
+    format_func=lambda k: _domain_labels[k],
+    index=_domain_options.index(
+        st.session_state.get("opt_domain", DEFAULT_DOMAIN_KEY)
+    ),
+    key="opt_domain",
+    help=(
+        "Earthquake is the primary configuration and the methodology "
+        "is fully documented for it. The Schools / Healthcare / Custom "
+        "presets adapt the UI vocabulary so the same p-Median engine "
+        "can be used for other facility-location problems. "
+        "Data preparation (weights, capacities) is the user's "
+        "responsibility for non-earthquake domains."
+    ),
+)
+domain = get_domain(_active_domain_key)
+# Non-earthquake domain'lerde scope sınırını şeffaf belirt
+if _active_domain_key != "earthquake":
+    st.sidebar.info(
+        f"**{domain.display_name}** mode: solver is identical, but "
+        f"weights and capacities must come from your own data preparation. "
+        f"Switching back to Earthquake re-enables AFAD-specific helpers."
+    )
+
 st.sidebar.markdown("### Workflow")
 st.sidebar.markdown(
     f"""
@@ -267,16 +301,9 @@ st.sidebar.markdown(
 # HERO
 # ════════════════════════════════════════════════════════════════════════════
 cards.hero(
-    eyebrow="Decision Support · Facility Location",
+    eyebrow=domain.hero_eyebrow,
     title="Assignment Optimization (p-Median)",
-    subtitle=(
-        "Assign demand points (buildings) to a chosen number of facilities "
-        "(assembly areas) using a capacity-aware P-Median model. The tool is "
-        "pre-configured for earthquake preparedness — AFAD m²/person capacity, "
-        "walking / driving travel times — but the underlying math (Hakimi 1964) "
-        "applies to any facility-location problem (schools, clinics, depots, "
-        "service centers). Swap inputs to adapt."
-    ),
+    subtitle=domain.hero_subtitle,
 )
 
 # Stepper
@@ -338,43 +365,58 @@ with st.container(border=True):
     _session_id = st.session_state["_session_id"]
 
     # ═══════════════════════════════════════════════════════════════════
-    # 📊 POPULATION DATA — Nüfus yöntemi seçimi + (gerekiyorsa) TÜİK dosyası
+    # 📊 DEMAND WEIGHT — Domain-aware (Earthquake/Custom: full UI;
+    # Schools/Healthcare: collapsed message)
     # ═══════════════════════════════════════════════════════════════════
+    _weight_section_title = domain.step1_weight_section_title
     st.markdown(
         '<div style="background:#EFF6FF;border-left:4px solid #2563EB;'
         'padding:8px 12px;margin:8px 0 4px 0;border-radius:4px;'
         'font-weight:600;color:#1E40AF;font-size:0.95rem">'
-        '📊 Population data'
+        f'📊 {_weight_section_title}'
         '</div>',
         unsafe_allow_html=True,
     )
-    pop_method_label = st.radio(
-        "Method",
-        [
-            "🤖 Auto (recommended)",
-            "📐 Footprint-based (footprint × levels × 0.025)",
-            "👥 Uniform per-building (TÜİK / building count)",
-        ],
-        index=0,
-        horizontal=False,
-        key="opt_pop_method",
-        label_visibility="collapsed",
-        help=(
-            "**Auto:** Uses footprint-based if your data has a footprint "
-            "column; otherwise uniform per-building.\n\n"
-            "**Footprint-based:** Building population ≈ footprint × levels "
-            "× 0.025 (TÜİK 2023 coefficient). Footprint and levels columns "
-            "are required.\n\n"
-            "**Uniform per-building:** Building population = neighborhood "
-            "population / number of buildings in the neighborhood. No "
-            "footprint needed; a TÜİK neighborhood population file is required."
-        ),
-    )
-    if pop_method_label.startswith("📐"):
-        pop_method_choice = POP_METHOD_FOOTPRINT
-    elif pop_method_label.startswith("👥"):
-        pop_method_choice = POP_METHOD_UNIFORM
+    if domain.show_population_methods:
+        pop_method_label = st.radio(
+            "Method",
+            [
+                "🤖 Auto (recommended)",
+                "📐 Footprint-based (footprint × levels × 0.025)",
+                "👥 Uniform per-building (TÜİK / building count)",
+            ],
+            index=0,
+            horizontal=False,
+            key="opt_pop_method",
+            label_visibility="collapsed",
+            help=(
+                "**Auto:** Uses footprint-based if your data has a footprint "
+                "column; otherwise uniform per-building.\n\n"
+                "**Footprint-based:** Building population ≈ footprint × levels "
+                "× 0.025 (TÜİK 2023 coefficient). Footprint and levels columns "
+                "are required.\n\n"
+                "**Uniform per-building:** Building population = neighborhood "
+                "population / number of buildings in the neighborhood. No "
+                "footprint needed; a TÜİK neighborhood population file is required."
+            ),
+        )
+        if pop_method_label.startswith("📐"):
+            pop_method_choice = POP_METHOD_FOOTPRINT
+        elif pop_method_label.startswith("👥"):
+            pop_method_choice = POP_METHOD_UNIFORM
+        else:
+            pop_method_choice = POP_METHOD_AUTO
     else:
+        # Non-earthquake domain: footprint formülü ve TÜİK upload meaningful
+        # değil. Auto seçili kabul edip kullanıcının veri tablosunda doğrudan
+        # weight kolonu olmasını bekliyoruz.
+        st.info(
+            f"**{domain.display_name}** mode: the loader will read the "
+            f"`{domain.weight_concept}` column directly from your data file "
+            f"(or fall back to footprint estimate if available). The earthquake-"
+            f"specific TÜİK/Uniform method is disabled in this mode — switch "
+            f"back to Earthquake to enable it."
+        )
         pop_method_choice = POP_METHOD_AUTO
 
     # Uniform mode TÜİK dosyası şart; bu dosyayı yine load anına kadar tut.
@@ -436,13 +478,15 @@ with st.container(border=True):
     )
 
     # ═══════════════════════════════════════════════════════════════════
-    # 🏢 BUILDINGS & ASSEMBLY AREAS — Veri dosyası seçimi + yükleme
+    # 🏢 DEMAND POINTS & FACILITIES — Veri dosyası seçimi + yükleme
     # ═══════════════════════════════════════════════════════════════════
+    import html as _h
+    _data_section_title = _h.escape(domain.step1_data_section_title)
     st.markdown(
         '<div style="background:#F0FDF4;border-left:4px solid #16A34A;'
         'padding:8px 12px;margin:16px 0 4px 0;border-radius:4px;'
         'font-weight:600;color:#166534;font-size:0.95rem">'
-        '🏢 Buildings &amp; assembly areas'
+        f'🏢 {_data_section_title}'
         '</div>',
         unsafe_allow_html=True,
     )
@@ -548,9 +592,9 @@ if _have("opt_buildings"):
 
     k1, k2, k3, k4 = st.columns(4, gap="small")
     with k1:
-        cards.kpi_card("Buildings (demand)", len(b))
+        cards.kpi_card(domain.demand_label, len(b))
     with k2:
-        cards.kpi_card("Assembly areas (facilities)", len(t))
+        cards.kpi_card(domain.facility_label, len(t))
     with k3:
         try:
             if len(b) and "weight" in b.columns and b["weight"].notna().any():
@@ -559,14 +603,21 @@ if _have("opt_buildings"):
                 avg_w = 0.0
         except Exception:
             avg_w = 0.0
-        cards.kpi_card("Avg est. population", f"{avg_w:.0f}")
+        cards.kpi_card(domain.weight_label, f"{avg_w:.0f}")
     with k4:
         method_used = b.attrs.get("population_method", "?")
         method_short = {
             "footprint_based": "Footprint",
             "uniform_per_building": "Uniform",
         }.get(method_used, method_used)
-        cards.kpi_card("Population method", method_short)
+        # Earthquake/Custom dışı domain'lerde "Population method" yerine
+        # daha generic bir başlık.
+        _method_card_title = (
+            "Population method"
+            if domain.show_population_methods
+            else "Weight source"
+        )
+        cards.kpi_card(_method_card_title, method_short)
 
     # Uniform mode'da TÜİK'te bulunamayan mahalle binaları yükleme
     # sırasında zaten düşürüldü (attrs.dropped_missing_weight*). Kullanıcıya
@@ -1319,19 +1370,22 @@ if _have("opt_od_matrix"):
         if area_available:
             from src.config.settings import AFAD_M2_PER_PERSON as _AFAD_DEFAULT
             m2_per_person = st.number_input(
-                "Density (m²/person)",
+                domain.capacity_method_label,
                 min_value=0.5,
                 max_value=5.0,
                 value=float(_AFAD_DEFAULT),
                 step=0.1,
                 key="opt_m2_per_person",
                 help=(
-                    "How many m² each person needs in the assembly area. "
-                    "Capacity = area_m² / density.\n\n"
-                    "• **1.0** — high-density emergency (short-term, max coverage)\n"
-                    "• **1.5** — AFAD assembly standard (default)\n"
-                    "• **2.5** — AFAD long-term shelter standard (more comfort)\n\n"
-                    "Only used when Capacity constraint is ON."
+                    f"{domain.capacity_method_help_short}\n\n"
+                    + (
+                        "• **1.0** — high-density emergency (short-term, max coverage)\n"
+                        "• **1.5** — AFAD assembly standard (default)\n"
+                        "• **2.5** — AFAD long-term shelter standard (more comfort)\n\n"
+                        if domain.show_afad_methodology
+                        else "Default 1.5 is the AFAD value; tune to your domain.\n\n"
+                    )
+                    + "Only used when Capacity constraint is ON."
                 ),
                 disabled=(not capacity),
             )
@@ -1967,7 +2021,10 @@ if _have("opt_result"):
     # "Travel time" terimi hem walking hem driving senaryosunda nötr.
     k1, k2, k3, k4, k5 = st.columns(5, gap="small")
     with k1:
-        cards.kpi_card("Areas opened (p)", int(result.p))
+        cards.kpi_card(
+            f"{domain.facility_singular.capitalize()}s opened (p)",
+            int(result.p),
+        )
     with k2:
         cards.kpi_card("Avg travel time (min)", f"{result.ort_sure_dk:.1f}")
     with k3:
@@ -2345,6 +2402,7 @@ if _have("opt_result"):
                 )
                 summary_df = pd.DataFrame({
                     "Metric": [
+                        "Use case (domain)",
                         "District",
                         "Transport mode",
                         "Objective",
@@ -2378,6 +2436,7 @@ if _have("opt_result"):
                         "Total weighted travel time",
                     ],
                     "Value": [
+                        domain.display_name,
                         st.session_state.get("opt_district", "—"),
                         _summ_mode_label,
                         objective_txt,
@@ -2493,13 +2552,11 @@ if _have("opt_result"):
                         "recommended for AFAD decision support. "
                         "Min-P95 is non-linear and is solved only by K-Medoids; "
                         "Min-Sum / Min-Max can be solved by either ILP or K-Medoids.",
-                        "When ON: Σᵢ wᵢ xᵢⱼ ≤ Cⱼ yⱼ with Cⱼ = area_m² / density. "
-                        "Density is a USER PARAMETER (m²/person, default 1.5 = "
-                        "AFAD assembly standard). Alternatives: 1.0 = high-density "
-                        "emergency, 2.5 = AFAD long-term shelter. Switching the "
-                        "density value lets the user run sensitivity analyses; the "
-                        "'Compare capacity ON vs OFF' button (Step 3) automates the "
-                        "side-by-side comparison.",
+                        domain.methodology_capacity + (
+                            " The 'Compare capacity ON vs OFF' button (Step 3) "
+                            "automates side-by-side sensitivity reporting."
+                            if domain.show_afad_methodology else ""
+                        ),
                         "Auto-selects PuLP + CBC ILP (provably optimal) for "
                         "≤5,000 buildings, otherwise greedy + 1-swap K-Medoids. "
                         "Advanced options let the user force ILP/K-Medoids, "

@@ -32,14 +32,23 @@ def test_no_2x_penalty_copy():
 def test_avg_weight_label_is_not_m2():
     """`weight` tahmini nüfustur (kişi); KPI label'ı m² demez."""
     src = _read_opt_tool()
+    # Domain config eklendiğinden bu testin scope'u genişledi: yanlış label
+    # ana modülde bulunmadığı gibi, domain_config.py'da da bulunmamalı.
+    domain_cfg = Path("components/domain_config.py").read_text(encoding="utf-8")
     assert "Avg weight (m²)" not in src, (
         "REGRESYON: KPI 'Avg weight (m²)' yanlış. weight = tahmini nüfus."
     )
-    # Yeni label (en azından biri) olmalı
-    assert (
-        "Avg est. population" in src
-        or "Avg building weight" in src
-        or "Avg estimated population" in src
+    assert "Avg weight (m²)" not in domain_cfg, (
+        "REGRESYON: domain_config.py'da 'Avg weight (m²)' yanlış."
+    )
+    # Earthquake domain weight_label "Avg est. population" — domain_config'de tanımlı
+    assert "Avg est. population" in domain_cfg, (
+        "Earthquake DomainConfig.weight_label 'Avg est. population' olmalı"
+    )
+    # Optimization_Tool.py artık `domain.weight_label` kullanmalı (string'i
+    # hardcoded yazmak yerine).
+    assert "domain.weight_label" in src, (
+        "Optimization_Tool.py KPI label için domain.weight_label kullanmalı"
     )
 
 
