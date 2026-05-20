@@ -60,6 +60,80 @@ ILP_THRESHOLD = _SETTINGS_ILP_THRESHOLD
 ILP_TIME_LIMIT_SN = _SETTINGS_ILP_TIME_LIMIT_SN
 KMEDOIDS_MAX_ITER = _SETTINGS_KMEDOIDS_MAX_ITER
 
+# ── ILP solver engine seçim katmanı ──────────────────────────────────────────
+# CBC bundled (PuLP ile gelir). Diğerleri opsiyonel; kullanıcı kurarsa
+# UI otomatik tanır. Büyük problemler (örn. 19k bina × 150 alan + capacity)
+# için Gurobi/HiGHS'in CBC'den 10-100× hızlı olduğu MIP literatüründe iyi
+# belgelenmiş. Anahtar adı (lowercase) → (PuLP class adı, görünür açıklama).
+_SUPPORTED_ILP_ENGINES: dict[str, tuple[str, str]] = {
+    "cbc":    ("PULP_CBC_CMD", "CBC (bundled — open-source, default)"),
+    "highs":  ("HiGHS",        "HiGHS (open-source, often 3-10× faster)"),
+    "gurobi": ("GUROBI_CMD",   "Gurobi (academic license, fastest)"),
+    "cplex":  ("CPLEX_CMD",    "CPLEX (academic license)"),
+    "scip":   ("SCIP_CMD",     "SCIP (academic license)"),
+}
+
+
+def list_available_ilp_engines() -> list[tuple[str, str]]:
+    """
+    Şu an makinada KURULU olan solver'ları (key, label) listesi olarak döner.
+    UI dropdown bu listeyi kullanır — kullanıcı Gurobi kurmamışsa Gurobi
+    seçeneği görünmez (yanıltıcı seçenek sunmamak için).
+
+    CBC her zaman listede olmalı; başka hiçbiri çalışmazsa fallback bu.
+    """
+    try:
+        import pulp
+        available = set(pulp.listSolvers(onlyAvailable=True))
+    except Exception:
+        return [("cbc", _SUPPORTED_ILP_ENGINES["cbc"][1])]
+    out = []
+    for key, (pulp_name, label) in _SUPPORTED_ILP_ENGINES.items():
+        if pulp_name in available:
+            out.append((key, label))
+    # Garanti: CBC her zaman listede (PuLP detection arızalansa bile)
+    if not any(k == "cbc" for k, _ in out):
+        out.insert(0, ("cbc", _SUPPORTED_ILP_ENGINES["cbc"][1]))
+    return out
+
+
+def _make_ilp_solver(engine: str, time_limit_sn: int | None, cb: Callable | None = None):
+    """
+    İsteneni dene; bulunmazsa CBC'ye düş + uyar.
+    Dönüş: (solver_instance, actual_engine_key).
+    """
+    import pulp
+
+    key = (engine or "cbc").lower().strip()
+    if key not in _SUPPORTED_ILP_ENGINES:
+        # Bilinmeyen key sessizce CBC'ye normalize edilir; sadece log'a düş
+        log.warning(f"Unknown ILP engine '{key}' — falling back to CBC.")
+        if cb is not None:
+            cb(f"⚠ Unknown ILP engine '{key}' — using CBC instead.")
+        key = "cbc"
+    pulp_name, _label = _SUPPORTED_ILP_ENGINES[key]
+    available = set(pulp.listSolvers(onlyAvailable=True))
+
+    if pulp_name not in available and key != "cbc":
+        # Kullanıcı kurulu olmayan solver istedi → CBC'ye düş + bildir
+        msg = (
+            f"⚠ ILP engine '{key}' not available on this machine "
+            f"(install hint: see Advanced ILP options help). "
+            f"Falling back to CBC."
+        )
+        log.warning(msg)
+        if cb is not None:
+            cb(msg)
+        key = "cbc"
+        pulp_name = "PULP_CBC_CMD"
+
+    SolverCls = getattr(pulp, pulp_name)
+    try:
+        return SolverCls(msg=0, timeLimit=time_limit_sn), key
+    except TypeError:
+        # Bazı solver'lar timeLimit'i farklı argümanla kabul ediyor
+        return SolverCls(msg=0), key
+
 # Hedef fonksiyon modları:
 #   • min_sum : Σᵢ wᵢ·dᵢⱼ        — toplam ağırlıklı süre (efficiency)
 #   • min_max : max_i dᵢⱼ        — en kötü atama süresi (klasik fairness;
@@ -210,6 +284,13 @@ class PMedianResult:
     kmedoids_converged: bool | None = None
     kmedoids_iterations: int | None = None
 
+    # Hangi ILP engine'in gerçekten kullanıldığı (cbc / highs / gurobi / ...).
+    # Kullanıcı Gurobi seçti ama kurulu değilse otomatik CBC'ye düştüğümüzde
+    # bu alan "cbc" değerini taşır → UI/Excel akademik şeffaflık için
+    # GERÇEKTEN kullanılan solver'ı raporlar. K-Med yolundan dönen sonuçlarda
+    # None.
+    ilp_engine_used: str | None = None
+
     # Alan bazlı özet
     alan_ozeti: pd.DataFrame = field(default_factory=pd.DataFrame)
 
@@ -228,6 +309,7 @@ def coz(
     solver: SolverMode = "auto",
     time_limit_sn: int | None = None,
     allow_fallback: bool = True,
+    ilp_engine: str = "cbc",
 ) -> PMedianResult:
     """
     OD matrisi ve p değerine göre p-median çözer.
@@ -258,6 +340,12 @@ def coz(
         allow_fallback: True (varsayılan) → ILP başarısızsa K-Medoids'e düş.
                        False → ILP başarısızsa RuntimeError fırlat (akademik
                        karşılaştırma, A/B testi için).
+        ilp_engine: ILP backend seçimi (cbc/highs/gurobi/cplex/scip). Default
+                       "cbc" (her makinada hazır). Büyük problemler (19k+ bina
+                       × capacity) Gurobi/HiGHS ile dakikalar mertebesinde
+                       çözülür; CBC'de günler veya hiç bitmez. list_available_
+                       ilp_engines() ile UI'da seçim sunulur; kurulu olmayan
+                       engine istendiğinde CBC'ye düşülür ve log'a not düşer.
     """
     def cb(msg: str):
         log.info(msg)
@@ -318,6 +406,7 @@ def coz(
             od, binalar_gdf, toplanma_gdf, p, kapasite, max_sure_dk, amac, cb,
             time_limit_sn=_effective_tl,
             allow_fallback=allow_fallback,
+            ilp_engine=ilp_engine,
         )
     else:
         # P2.1: amac parametresi de aktarılır. Önceden _coz_kmedoids `amac`
@@ -418,10 +507,14 @@ def _coz_ilp(
     cb: Callable,
     time_limit_sn: int | None = ILP_TIME_LIMIT_SN,
     allow_fallback: bool = True,
+    ilp_engine: str = "cbc",
 ) -> PMedianResult:
     """
-    time_limit_sn=None → CBC'ye `timeLimit` parametresi None olarak iletilir
+    time_limit_sn=None → solver'a `timeLimit` parametresi None olarak iletilir
     (PuLP convention'ı: limitsiz). Status mesajlarında "unlimited" olarak yazılır.
+
+    ilp_engine: "cbc" (default, bundled) | "highs" | "gurobi" | "cplex" | "scip"
+                — kurulu değilse otomatik CBC'ye düşer (log + cb mesajı).
     """
     try:
         import pulp
@@ -513,9 +606,10 @@ def _coz_ilp(
         cb(f"Capacity constraint added (total capacity: {kapasiteler.sum():,.0f} people)")
 
     _tl_str = "unlimited" if time_limit_sn is None else f"{time_limit_sn}s"
-    cb(f"Solving ILP (CBC solver, {len(x):,} x variables, "
+    solver_instance, actual_engine = _make_ilp_solver(ilp_engine, time_limit_sn, cb)
+    cb(f"Solving ILP ({actual_engine.upper()} solver, {len(x):,} x variables, "
        f"timeLimit={_tl_str})...")
-    prob.solve(pulp.PULP_CBC_CMD(msg=0, timeLimit=time_limit_sn))
+    prob.solve(solver_instance)
 
     status = pulp.LpStatus[prob.status]
     cb(f"ILP status: {status} | time: {time.time()-t0:.1f}s")
@@ -601,6 +695,7 @@ def _coz_ilp(
         sure=time.time() - t0,
         max_sure_dk_kisit=max_sure_dk,
         kapasite_aktif=kapasite_aktif,
+        ilp_engine_used=actual_engine,
     )
     result.ilp_status = status
     return result
@@ -902,6 +997,7 @@ def _build_result(
     # bunları doldurur.
     kmedoids_converged: bool | None = None,
     kmedoids_iterations: int | None = None,
+    ilp_engine_used: str | None = None,
 ) -> PMedianResult:
 
     alan_adlari = (
@@ -1120,6 +1216,7 @@ def _build_result(
         kapasite_aktif         = kapasite_aktif,
         kmedoids_converged     = kmedoids_converged,
         kmedoids_iterations    = kmedoids_iterations,
+        ilp_engine_used        = ilp_engine_used,
         alan_ozeti             = alan_ozeti,
     )
 

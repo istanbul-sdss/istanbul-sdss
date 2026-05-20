@@ -1477,6 +1477,39 @@ if _have("opt_od_matrix"):
                 disabled=(solver_mode == "kmedoids"),
             )
 
+            # ── ILP solver engine seçimi (kullanıcıda kurulu olanlar) ──
+            # CBC default + bundled. Gurobi/HiGHS gibi commercial / modern
+            # alternatifler büyük problem (19k+ bina × capacity) için CBC'den
+            # 10-100× hızlı. PuLP runtime'da hangileri kurulu görür.
+            from src.optimizer.p_median import list_available_ilp_engines
+            _avail_engines = list_available_ilp_engines()
+            _engine_keys = [k for k, _ in _avail_engines]
+            _engine_labels = dict(_avail_engines)
+            ilp_engine = st.selectbox(
+                "ILP solver engine",
+                options=_engine_keys,
+                format_func=lambda k: _engine_labels.get(k, k.upper()),
+                index=0,
+                key="opt_ilp_engine",
+                help=(
+                    "Which MIP solver to use under the hood.\n\n"
+                    "• **CBC** (default) — open-source, bundled. Adequate for "
+                    "small/medium problems. Slow at 10,000+ buildings with "
+                    "capacity constraints.\n"
+                    "• **HiGHS** — open-source, modern. Often 3-10× faster "
+                    "than CBC. Install: `pip install highspy`.\n"
+                    "• **Gurobi** — commercial, free **academic license** "
+                    "at gurobi.com/academia. 10-100× faster than CBC for "
+                    "MIPs; the right choice for 19k buildings + capacity. "
+                    "Install: `pip install gurobipy` + license file.\n"
+                    "• **CPLEX** / **SCIP** — also academic-free alternatives.\n\n"
+                    "Only solvers detected on this machine appear in the "
+                    "dropdown. If you install a new one and don't see it, "
+                    "restart Streamlit."
+                ),
+                disabled=(solver_mode == "kmedoids"),
+            )
+
         # Çözüm yöntem rozeti — gerçek seçimi yansıtır
         if solver_mode == "auto":
             method_txt = (
@@ -1547,6 +1580,7 @@ if _have("opt_od_matrix"):
                             solver=solver_mode,
                             time_limit_sn=effective_time_limit,
                             allow_fallback=allow_fallback,
+                            ilp_engine=ilp_engine,
                             iter_cb=_sens_iter_cb,
                         )
                         _sens_progress.progress(1.0)
@@ -1643,6 +1677,7 @@ if _have("opt_od_matrix"):
                         solver=solver_mode,
                         time_limit_sn=effective_time_limit,
                         allow_fallback=allow_fallback,
+                        ilp_engine=ilp_engine,
                     )
                     st.session_state.opt_result = result
                     # Kullanılan yoğunluğu kaydet — Excel + report için
@@ -1727,6 +1762,7 @@ if _have("opt_od_matrix"):
                             solver=solver_mode,
                             time_limit_sn=effective_time_limit,
                             allow_fallback=allow_fallback,
+                            ilp_engine=ilp_engine,
                         )
                         # ON: capacity recompute with slider density
                         a_on = st.session_state.opt_assembly
@@ -1748,6 +1784,7 @@ if _have("opt_od_matrix"):
                             solver=solver_mode,
                             time_limit_sn=effective_time_limit,
                             allow_fallback=allow_fallback,
+                            ilp_engine=ilp_engine,
                         )
                         st.session_state["opt_compare_results"] = {
                             "off": result_off,
@@ -2411,6 +2448,7 @@ if _have("opt_result"):
                         "Density assumption (m²/person)",
                         "p (areas opened)",
                         "Method",
+                        "ILP engine used",
                         "Convergence status",
                         "Fallback reason",
                         "Solve time (s)",
@@ -2451,6 +2489,10 @@ if _have("opt_result"):
                          if result.kapasite_aktif else "N/A (capacity off)"),
                         result.p,
                         result.yontem,
+                        # ILP engine used — CBC / HiGHS / Gurobi / vs.
+                        # K-Med yolundan dönen sonuçta None → "N/A".
+                        (result.ilp_engine_used.upper()
+                         if result.ilp_engine_used else "N/A (K-Medoids)"),
                         # Convergence status — solver tipine göre:
                         #   • K-Med converged → "Converged in N iter(s)"
                         #   • K-Med MAX_ITER → "NOT converged — hit MAX_ITER=N"
