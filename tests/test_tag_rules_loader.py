@@ -20,9 +20,9 @@ import json
 import pytest
 
 from src.config.tag_rules import (
+    _DATA_FILE,
     NAME_PATTERNS,
     TAG_RULES,
-    _DATA_FILE,
     _load_rules,
     _validate_rule,
     get_export_family,

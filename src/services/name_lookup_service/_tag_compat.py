@@ -29,7 +29,6 @@ import pandas as pd
 
 from src.config.tag_rules import get_rule
 
-
 # Tag-compat ranking — used to break score ties (Fix 1).
 # Lower is better. A tag-aligned candidate at score 100 wins over an
 # unrelated 100 (e.g. neighborhood "Moda" vs park "Moda Parkı").
