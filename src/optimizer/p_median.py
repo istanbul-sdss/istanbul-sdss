@@ -319,6 +319,7 @@ def coz(
     progress_cb: Callable | None = None,
     solver: SolverMode = "auto",
     time_limit_sn: int | None = None,
+    unlimited: bool = False,
     allow_fallback: bool = True,
     ilp_engine: str = "cbc",
 ) -> PMedianResult:
@@ -343,11 +344,15 @@ def coz(
                        isteği reddedilir (ValueError) — ILP'de p95 doğrusal değil.
         time_limit_sn: ILP zaman limiti (saniye).
                        • None  → settings.ILP_TIME_LIMIT_SN (varsayılan limit)
-                       • 0     → SINIRSIZ (CBC, kanıtlı optimum/infeasible'a kadar
-                                 çalışır; akademik karşılaştırma / "ne kadar
-                                 sürerse sürsün" senaryosu için)
                        • int>0 → o kadar saniye
+                       • 0     → SINIRSIZ (deprecated — `unlimited=True` kullanın;
+                                 backward-compat için hâlâ kabul ediliyor)
                        Sadece ILP modu için anlamlı.
+        unlimited    : True ise time_limit_sn yoksayılır ve solver'a `timeLimit=None`
+                       gönderilir → kanıtlı optimum/infeasible'a kadar çalışır.
+                       Akademik karşılaştırma / "ne kadar sürerse sürsün"
+                       senaryosu için. Eski `time_limit_sn=0` sentinel'inin
+                       yerini alan, niyeti açıkça gösteren API.
         allow_fallback: True (varsayılan) → ILP başarısızsa K-Medoids'e düş.
                        False → ILP başarısızsa RuntimeError fırlat (akademik
                        karşılaştırma, A/B testi için).
@@ -401,15 +406,15 @@ def coz(
        f"allow_fallback={allow_fallback}")
 
     if not use_kmedoids:
-        # time_limit_sn sentinel haritası:
-        #   None → default (settings.ILP_TIME_LIMIT_SN)
-        #   0    → UNLIMITED (CBC'ye timeLimit=None gönder; kanıtlı bitişe kadar)
-        #   int>0 → kullanıcı tarafından verilmiş süre
-        # `or` operatörü 0'ı falsy sayıp default'a düşürürdü → değiştirildi.
-        if time_limit_sn is None:
-            _effective_tl: int | None = ILP_TIME_LIMIT_SN
-        elif time_limit_sn <= 0:
-            _effective_tl = None   # sınırsız
+        # Effective time-limit çözümleme:
+        #   1. unlimited=True  → solver'a None (sınırsız)
+        #   2. time_limit_sn=0 → None (deprecated sentinel, hâlâ desteklenir)
+        #   3. time_limit_sn=None → settings.ILP_TIME_LIMIT_SN (default)
+        #   4. time_limit_sn=int>0 → o değer
+        if unlimited or (time_limit_sn is not None and time_limit_sn <= 0):
+            _effective_tl: int | None = None
+        elif time_limit_sn is None:
+            _effective_tl = ILP_TIME_LIMIT_SN
         else:
             _effective_tl = int(time_limit_sn)
 
@@ -1249,6 +1254,7 @@ def duyarlilik_analizi(
     progress_cb: Callable | None = None,
     solver: SolverMode = "auto",
     time_limit_sn: int | None = None,
+    unlimited: bool = False,
     allow_fallback: bool = True,
     ilp_engine: str = "cbc",
     iter_cb: Callable[[int, int, int], None] | None = None,
@@ -1284,6 +1290,7 @@ def duyarlilik_analizi(
             p=p, kapasite=kapasite, max_sure_dk=max_sure_dk,
             amac=amac, progress_cb=progress_cb,
             solver=solver, time_limit_sn=time_limit_sn,
+            unlimited=unlimited,
             allow_fallback=allow_fallback,
             ilp_engine=ilp_engine,
         )

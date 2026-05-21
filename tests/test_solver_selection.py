@@ -111,6 +111,45 @@ def test_time_limit_override_passes_through():
     assert sonuc.yontem == "ILP"
 
 
+def test_unlimited_bool_param_overrides_time_limit(monkeypatch):
+    """
+    Sprint 2 #13: `unlimited=True` time_limit_sn'den bağımsız olarak
+    solver'a `timeLimit=None` gönderir. Niyet-açık API (eskiden
+    `time_limit_sn=0` sentinel'i).
+    """
+    import pulp
+
+    captured: dict = {}
+    _OriginalCBC = pulp.PULP_CBC_CMD
+
+    class _MockCmd:
+        def __init__(self, *_, **kwargs):
+            captured["timeLimit"] = kwargs.get("timeLimit")
+            self._delegate = _OriginalCBC(msg=0, timeLimit=kwargs.get("timeLimit"))
+
+        def actualSolve(self, prob):  # noqa: N802
+            return self._delegate.actualSolve(prob)
+
+        def solve(self, prob):
+            return self.actualSolve(prob)
+
+    monkeypatch.setattr(pulp, "PULP_CBC_CMD", _MockCmd)
+
+    od, binalar, alanlar = _make_data(n_bina=10)
+
+    # unlimited=True → time_limit_sn ne olursa olsun None geçer
+    coz(od, binalar, alanlar, p=2, solver="ilp",
+        time_limit_sn=120, unlimited=True)
+    assert captured["timeLimit"] is None, (
+        "unlimited=True ile time_limit_sn=120 verilse bile None bekleniyor"
+    )
+
+    # unlimited=False → time_limit_sn dikkate alınır
+    coz(od, binalar, alanlar, p=2, solver="ilp",
+        time_limit_sn=180, unlimited=False)
+    assert captured["timeLimit"] == 180
+
+
 def test_time_limit_sentinel_zero_means_unlimited(monkeypatch):
     """
     Sentinel: time_limit_sn=0 → CBC'ye timeLimit=None gönderilir (sınırsız).

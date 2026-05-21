@@ -1632,9 +1632,12 @@ if _have("opt_od_matrix"):
                 ),
                 disabled=(solver_mode == "kmedoids") or ilp_unlimited,
             )
-            # Effective value sent to coz(): 0 = unlimited sentinel, else int seconds.
-            # See src/optimizer/p_median.py coz() for the sentinel handling.
-            effective_time_limit = 0 if ilp_unlimited else int(time_limit_sn)
+            # Sprint 2 #13: `unlimited` artık ayrı bir kwarg. UI'dan iki
+            # değer paslıyoruz: effective_time_limit (her zaman int>0) +
+            # ilp_unlimited (bool). coz() unlimited=True ise time_limit'i
+            # yoksayar. Backward-compat: 0 sentinel'i hâlâ desteklenir ama
+            # UI artık temiz API kullanıyor.
+            effective_time_limit = int(time_limit_sn)
             allow_fallback = st.checkbox(
                 "Fall back to Heuristic if Exact fails",
                 value=True,
@@ -1751,6 +1754,7 @@ if _have("opt_od_matrix"):
                             amac=amac,
                             solver=solver_mode,
                             time_limit_sn=effective_time_limit,
+                            unlimited=ilp_unlimited,
                             allow_fallback=allow_fallback,
                             ilp_engine=ilp_engine,
                             iter_cb=_sens_iter_cb,
@@ -1859,6 +1863,7 @@ if _have("opt_od_matrix"):
                         progress_cb=log_cb,
                         solver=solver_mode,
                         time_limit_sn=effective_time_limit,
+                        unlimited=ilp_unlimited,
                         allow_fallback=allow_fallback,
                         ilp_engine=ilp_engine,
                     )
@@ -1944,6 +1949,7 @@ if _have("opt_od_matrix"):
                             progress_cb=log_cb,
                             solver=solver_mode,
                             time_limit_sn=effective_time_limit,
+                            unlimited=ilp_unlimited,
                             allow_fallback=allow_fallback,
                             ilp_engine=ilp_engine,
                         )
@@ -1966,6 +1972,7 @@ if _have("opt_od_matrix"):
                             progress_cb=log_cb,
                             solver=solver_mode,
                             time_limit_sn=effective_time_limit,
+                            unlimited=ilp_unlimited,
                             allow_fallback=allow_fallback,
                             ilp_engine=ilp_engine,
                         )
