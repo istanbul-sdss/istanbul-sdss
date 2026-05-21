@@ -685,9 +685,20 @@ if _have("opt_buildings"):
     # endüstriyel / okul / depo gibi binalar için sistematik fazla tahmin
     # üretir ve toplam talebi şişirir. Karar destek raporlarının yanlış
     # yorumlanmasını önlemek için kullanıcıya görünür hale getiriyoruz.
+    #
+    # Sprint 2 #11: warning artık opsiyonel bir acknowledgement checkbox'ı
+    # ile birlikte. %5'in üzerinde non-residential bina varsa kullanıcı
+    # CHECKBOX'I işaretlemeden Step 3'e devam edemez. Düşük orana sahip
+    # senaryolarda sadece bilgi notu olarak kalır.
     n_nr = int(b.attrs.get("non_residential_count", 0))
+    pct_nr = (n_nr / len(b) * 100) if (n_nr and len(b)) else 0.0
+    st.session_state["opt_non_residential_pct"] = pct_nr
+    # %5 eşik — altında sistematik etki ihmal edilebilir (statistical noise);
+    # üstünde karar destek raporu yanlış yorumlanır → blok zorunlu.
+    nr_block_threshold_pct = 5.0
+    requires_ack = n_nr > 0 and pct_nr >= nr_block_threshold_pct
+
     if n_nr > 0:
-        pct_nr = n_nr / len(b) * 100 if len(b) else 0.0
         st.warning(
             f"⚠️ **Non-residential building assumption warning:** {n_nr:,}/{len(b):,} "
             f"({pct_nr:.0f}%) buildings are NON-residential (commercial, office, "
@@ -700,6 +711,37 @@ if _have("opt_buildings"):
             f"(`Residential`, `Apartments`, `House`, `Detached House`, `Terrace`, "
             f"`Unspecified Building (yes)`)."
         )
+
+    if requires_ack:
+        # Eşiği aşan dataset: kullanıcı bilinçli kabul etmeden ilerleme yok.
+        # session_state'e flag yazıyoruz; Step 3 "Run optimization" butonu
+        # bunu okuyarak disabled olur.
+        ack_ok = st.checkbox(
+            (
+                f"☑ I acknowledge the **{pct_nr:.0f}%** non-residential mix and "
+                f"accept that demand estimates will be inflated. Reports must "
+                f"label this dataset as 'mixed-use' rather than 'residential'."
+            ),
+            value=False,
+            key="opt_nr_acknowledged",
+            help=(
+                "When non-residential ratio is ≥5%, the population estimator "
+                "produces a systematically inflated demand. By checking this "
+                "box you confirm that you understand the limitation and your "
+                "downstream report will reflect this caveat."
+            ),
+        )
+        st.session_state["opt_non_residential_acknowledged"] = bool(ack_ok)
+        if not ack_ok:
+            st.info(
+                "ℹ Optimization is **paused** until the acknowledgement above "
+                "is checked. This guard protects academic reports from silent "
+                "demand inflation in mixed-use datasets."
+            )
+    else:
+        # Eşik altında: ack zorunlu değil, default True yazıyoruz ki Step 3
+        # bloğu engellenmesin.
+        st.session_state["opt_non_residential_acknowledged"] = True
 
     # ── Estimated capacity warning (area_source='estimated' assembly areas) ──
     if "area_source" in t.columns:
@@ -1642,13 +1684,24 @@ if _have("opt_od_matrix"):
 
         # Solver/amac çakışması varsa "Run" butonunu devre dışı bırak
         invalid_combo = (solver_mode == "ilp" and amac == "min_p95")
+        # Sprint 2 #11: non-residential acknowledgement zorunlu ise
+        # devam etmeyi engelle (warning Step 1'de gösterildi, ack
+        # session_state'e yazılıyor).
+        nr_ack_ok = st.session_state.get("opt_non_residential_acknowledged", True)
+        run_disabled = invalid_combo or (not nr_ack_ok)
+
+        if (not nr_ack_ok):
+            st.caption(
+                "⛔ Run is disabled — first acknowledge the non-residential "
+                "warning at the top of **Step 1** (Data)."
+            )
 
         if st.button(
             "🚀 Run optimization",
             key="opt_btn_opt",
             type="primary",
             width="stretch",
-            disabled=invalid_combo,
+            disabled=run_disabled,
         ):
             st.session_state.opt_logs = []
             with st.spinner(f"Running optimization (p={p}) — this may take a moment…"):
