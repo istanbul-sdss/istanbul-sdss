@@ -663,6 +663,10 @@ def _coz_ilp(
         )
         result.fallback_nedeni = sebep
         result.ilp_status = status
+        # Akademik şeffaflık: hangi ILP engine başarısız olup fallback'i
+        # tetikledi raporlanmalı. Daha önce None kalıyordu → kullanıcı
+        # "CPLEX denendi mi?" sorusunu cevaplayamıyordu.
+        result.ilp_engine_used = actual_engine
         return result
 
     if ilp_feasible_only:
