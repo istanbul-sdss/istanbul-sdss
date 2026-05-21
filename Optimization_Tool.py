@@ -285,6 +285,134 @@ with st.sidebar.expander("🔄 Reset session"):
         st.session_state["opt_confirm_reset"] = False
         st.rerun()
 
+# ── Cache disk panel (Sprint 2 #10) ──────────────────────────────────────────
+# Operations hygiene: cache klasörü (OSM Overpass yanıtları + ilçe graph'leri
+# + Streamlit output'ları) zamanla GB'lere ulaşabilir. Sidebar'a görünür bir
+# boyut göstergesi + selective cleanup buton koyuyoruz ki kullanıcı
+# manuel `rmdir /S` adımına ihtiyaç duymadan yönetebilsin.
+with st.sidebar.expander("💾 Cache & disk"):
+    import shutil as _shutil
+    from pathlib import Path as _Path
+
+    def _folder_size_bytes(folder: _Path) -> tuple[int, int]:
+        """Returns (toplam_byte, dosya_sayısı). Klasör yoksa (0, 0)."""
+        if not folder.exists():
+            return 0, 0
+        total, count = 0, 0
+        for f in folder.rglob("*"):
+            if f.is_file():
+                try:
+                    total += f.stat().st_size
+                    count += 1
+                except OSError:
+                    pass
+        return total, count
+
+    def _fmt_size(n: int) -> str:
+        for unit in ("B", "KB", "MB", "GB"):
+            if n < 1024:
+                return f"{n:.1f} {unit}"
+            n /= 1024
+        return f"{n:.1f} TB"
+
+    _ROOT = _Path(__file__).parent
+    _CACHE_DIR_PATH = _ROOT / "cache"
+    _GRAPHS_DIR = _CACHE_DIR_PATH / "graphs"
+    _OVERPASS_DIR = _CACHE_DIR_PATH  # cache/ root holds JSON; graphs/ alt-klasör
+    _OUTPUT_DIR = _ROOT / "output"
+    _LOGS_DIR = _ROOT / "logs"
+
+    # cache/ root içindeki *.json (Overpass) — graphs/ alt klasörü hariç
+    _overpass_size = 0
+    _overpass_count = 0
+    if _CACHE_DIR_PATH.exists():
+        for f in _CACHE_DIR_PATH.glob("*.json"):
+            try:
+                _overpass_size += f.stat().st_size
+                _overpass_count += 1
+            except OSError:
+                pass
+    _graphs_size, _graphs_count = _folder_size_bytes(_GRAPHS_DIR)
+    _output_size, _output_count = _folder_size_bytes(_OUTPUT_DIR)
+    _logs_size, _logs_count = _folder_size_bytes(_LOGS_DIR)
+
+    st.markdown(
+        f"""
+        <div style="font-size:0.8125rem;color:#CBD5E1;line-height:1.7">
+        • Overpass cache: <b>{_fmt_size(_overpass_size)}</b> ({_overpass_count} files)<br>
+        • Graphs: <b>{_fmt_size(_graphs_size)}</b> ({_graphs_count} files)<br>
+        • Output: <b>{_fmt_size(_output_size)}</b> ({_output_count} files)<br>
+        • Logs: <b>{_fmt_size(_logs_size)}</b> ({_logs_count} files)
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+    st.caption(
+        "Cleanup removes only **reproducible** artifacts. Source code, "
+        "configs, and user data are never touched."
+    )
+    # 3-yollu temizlik — her biri ayrı checkbox + buton (yanlışlıkla
+    # tıklanmaması için confirm guard). Streamlit native rerun beklenir.
+    _target = st.selectbox(
+        "Target to clear",
+        options=[
+            "Overpass JSON cache",
+            "Graph cache (OSMnx GraphML)",
+            "Output (Excel/CSV exports)",
+            "All reproducible caches",
+        ],
+        key="opt_cache_clear_target",
+    )
+    _confirm_clear = st.checkbox(
+        "I confirm I want to delete the selected cache",
+        key="opt_confirm_clear_cache",
+    )
+    if st.button(
+        "🗑 Clear selected",
+        disabled=not _confirm_clear,
+        width="stretch",
+        key="opt_btn_clear_cache",
+    ):
+        removed_bytes = 0
+        removed_files = 0
+        targets: list[_Path] = []
+        if _target in ("Overpass JSON cache", "All reproducible caches"):
+            targets.extend(_CACHE_DIR_PATH.glob("*.json"))
+        if _target in ("Graph cache (OSMnx GraphML)", "All reproducible caches"):
+            if _GRAPHS_DIR.exists():
+                targets.extend(_GRAPHS_DIR.glob("*"))
+        if _target in ("Output (Excel/CSV exports)", "All reproducible caches"):
+            if _OUTPUT_DIR.exists():
+                targets.extend(_OUTPUT_DIR.rglob("*"))
+        for f in targets:
+            if f.is_file():
+                try:
+                    sz = f.stat().st_size
+                    f.unlink()
+                    removed_bytes += sz
+                    removed_files += 1
+                except OSError:
+                    pass
+        # Empty directories left behind in output/ → temizle
+        if _target in ("Output (Excel/CSV exports)", "All reproducible caches"):
+            if _OUTPUT_DIR.exists():
+                import contextlib as _ctx
+                for d in sorted(
+                    [p for p in _OUTPUT_DIR.rglob("*") if p.is_dir()],
+                    key=lambda p: -len(p.parts),  # derinden yüzeye
+                ):
+                    with _ctx.suppress(OSError):
+                        d.rmdir()
+        st.session_state["opt_confirm_clear_cache"] = False
+        st.success(
+            f"Removed {removed_files} files ({_fmt_size(removed_bytes)})."
+        )
+        # `_shutil` import edildi, gelecekte tüm-klasör operasyonları için
+        # kullanılabilir; şu an file-by-file ilerliyoruz çünkü size raporlama
+        # için her dosyayı saymamız lazım. Linter F401 önlemek için:
+        _ = _shutil
+
 st.sidebar.markdown(
     """
     <div style="font-size:0.75rem;color:#64748B;line-height:1.5;margin-top:1rem">
