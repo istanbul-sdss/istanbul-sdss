@@ -72,15 +72,15 @@ from ._matchers import (
     NameLookupResult,
     PreparedPools,
     UniversalPool,
+    # Private but test-imported (kept stable across the refactor):
+    _Candidate,
+    _is_empty_input,
+    _UniversalCandidate,
     match_mixed_list,
     match_names,
     prepare_pools,
     prepare_universal_pool,
     run_name_lookup,
-    # Private but test-imported (kept stable across the refactor):
-    _Candidate,
-    _UniversalCandidate,
-    _is_empty_input,
 )
 
 __all__ = [
@@ -96,4 +96,9 @@ __all__ = [
     "prepare_pools",
     "prepare_universal_pool",
     "run_name_lookup",
+    # Private but test-imported — listing in __all__ keeps re-export
+    # explicit so ruff F401 doesn't flag them as unused.
+    "_Candidate",
+    "_UniversalCandidate",
+    "_is_empty_input",
 ]

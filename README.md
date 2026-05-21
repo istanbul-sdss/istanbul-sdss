@@ -270,9 +270,10 @@ yerel/üretilmiş klasörleri DAHİL ETMEZ. Alıcı taraf ZIP'i açıp
   `style_workbook`); ~150 satır kopya kod elendi.
 - **Sabit konsolidasyonu:** `AFAD_M2_PER_PERSON`, `DEFAULT_AREA_FALLBACK_M2`
   artık yalnızca `src/config/settings.py`'da; modüller alias ile import eder.
-- **Test kapsamı:** 207 → 220 → **294** test (13 `test_excel_styling.py` +
-  12 `test_df_content_hash.py` + 3 `test_streamlit_smoke.py` + diğer
-  birim eklemeleri).
+- **Test kapsamı:** 207 → 220 → 294 → **476** test (Faz B'de sürekli
+  büyüyen regresyon paketi: convergence şeffaflığı, sentinel davranışı,
+  mode-aware OD, building label dedup, domain config, ILP engine
+  seçimi/fallback, sensitivity ilp_engine forwarding, vb.).
 - **Dağıtım altyapısı:** `.streamlit/config.toml` (theme + upload limit + telemetry off)
   ve `.github/workflows/ci.yml` (Python 3.10/3.11/3.12 matrisinde pytest + smoke import).
 

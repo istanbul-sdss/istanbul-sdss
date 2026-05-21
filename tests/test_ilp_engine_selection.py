@@ -128,6 +128,47 @@ def test_coz_passes_engine_to_ilp_path():
     assert result.ilp_engine_used == "cbc"
 
 
+def test_duyarlilik_analizi_accepts_ilp_engine():
+    """
+    Regresyon (BUG-1): duyarlilik_analizi() ilp_engine parametresini KABUL
+    etmeli ve coz()'a forward etmeli. UI'dan ilp_engine geçildiğinde önceden
+    `TypeError: unexpected keyword argument 'ilp_engine'` fırlatıyor +
+    "Sensitivity analysis failed" mesajı üretiyordu.
+    """
+    import geopandas as gpd
+    import numpy as np
+    from shapely.geometry import Point
+
+    from src.optimizer.p_median import duyarlilik_analizi
+
+    np.random.seed(0)
+    n_bina, n_alan = 5, 3
+    binalar = gpd.GeoDataFrame({
+        "weight":       [10.0] * n_bina,
+        "mahalle":      ["A"] * n_bina,
+        "alan_m2":      [100.0] * n_bina,
+        "levels":       [3] * n_bina,
+        "bina_etiketi": [f"B{i}" for i in range(n_bina)],
+        "geometry":     [Point(29.0 + i * 0.001, 41.0) for i in range(n_bina)],
+    }, crs="EPSG:4326")
+    alanlar = gpd.GeoDataFrame({
+        "ad":       [f"A{j}" for j in range(n_alan)],
+        "kapasite": [200.0] * n_alan,
+        "geometry": [Point(29.001 + j * 0.002, 41.001) for j in range(n_alan)],
+    }, crs="EPSG:4326")
+    od = np.random.uniform(2.0, 15.0, size=(n_bina, n_alan)).astype(np.float32)
+
+    # ilp_engine kwarg'ını geçtiğimizde TypeError fırlatmamalı + sonuç dönmeli
+    df = duyarlilik_analizi(
+        od, binalar, alanlar,
+        p_aralik=range(1, 3),
+        solver="ilp",
+        ilp_engine="cbc",
+    )
+    assert len(df) == 2, "İki p değeri için iki satır beklenir"
+    assert "Yöntem" in df.columns
+
+
 def test_kmedoids_path_leaves_engine_used_as_none():
     """K-Med yolundan dönen result ilp_engine_used=None olmalı."""
     import geopandas as gpd

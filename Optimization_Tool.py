@@ -201,9 +201,9 @@ _active_domain_key = st.sidebar.selectbox(
     key="opt_domain",
     help=(
         "Earthquake is the primary configuration and the methodology "
-        "is fully documented for it. The Schools / Healthcare / Custom "
-        "presets adapt the UI vocabulary so the same p-Median engine "
-        "can be used for other facility-location problems. "
+        "is fully documented for it. The Custom preset switches the UI "
+        "vocabulary to generic facility-location terms so the same "
+        "p-Median engine can be applied to other use cases. "
         "Data preparation (weights, capacities) is the user's "
         "responsibility for non-earthquake domains."
     ),
@@ -365,8 +365,10 @@ with st.container(border=True):
     _session_id = st.session_state["_session_id"]
 
     # ═══════════════════════════════════════════════════════════════════
-    # 📊 DEMAND WEIGHT — Domain-aware (Earthquake/Custom: full UI;
-    # Schools/Healthcare: collapsed message)
+    # 📊 DEMAND WEIGHT — Domain-aware
+    # Earthquake + Custom presets both expose the full population-method
+    # radio (Auto / Footprint / Uniform) + TÜİK upload. Section header
+    # changes per preset (e.g. "Population data" vs "Demand weights").
     # ═══════════════════════════════════════════════════════════════════
     _weight_section_title = domain.step1_weight_section_title
     st.markdown(

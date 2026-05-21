@@ -30,39 +30,37 @@ from src.config.name_lookup_rules import (
 )
 from src.logger import get_logger
 
-# Sub-module: pure scoring math + input cleaning.
-from ._scoring import (
-    AMBIGUITY_DELTA,
-    MIRROR_COLUMNS_TR,
-    _classify,
-    _extract_name_variants,
-    _is_empty_input,
-    _score,
-    _score_variants,
-)
-
-# Sub-module: OSM tag-compatibility evaluation + ranking + UI labels.
-from ._tag_compat import (
-    _check_tag_compat,
-    _COMPAT_RANK,
-    _TAG_MATCH_TR,
-    _TAG_SCORE_MAP,
-)
-
 # Sub-module: candidate dataclasses + pool builders + heavy prepare entries.
 # Re-exported through __init__ so external callers keep their existing
-# import paths.
-from ._pools import (
+# import paths. `noqa: F401` — these names are not used inside _matchers but
+# are intentional re-exports for the top-level package + test imports.
+from ._pools import (  # noqa: F401
+    _KEEP_TAG_COLUMNS,
     MIXED_DEFAULT_THRESHOLD,
     TIER1_DEFAULT_THRESHOLD,
     TIER2_DEFAULT_THRESHOLD,
     PreparedPools,
     UniversalPool,
     _Candidate,
-    _KEEP_TAG_COLUMNS,
     _UniversalCandidate,
     prepare_pools,
     prepare_universal_pool,
+)
+
+# Sub-module: pure scoring math + input cleaning.
+from ._scoring import (
+    MIRROR_COLUMNS_TR,
+    _classify,
+    _is_empty_input,
+    _score_variants,
+)
+
+# Sub-module: OSM tag-compatibility evaluation + ranking + UI labels.
+from ._tag_compat import (
+    _COMPAT_RANK,
+    _TAG_MATCH_TR,
+    _TAG_SCORE_MAP,
+    _check_tag_compat,
 )
 
 log = get_logger(__name__)

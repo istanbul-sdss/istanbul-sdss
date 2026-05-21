@@ -178,14 +178,13 @@ def test_missing_sol_status_attribute_falls_through(monkeypatch):
     original_solve = pulp.LpProblem.solve
 
     def fake_solve(self, *args, **kwargs):
+        import contextlib
         ret = original_solve(self, *args, **kwargs)
         self.status = 0
         # sol_status'u SİL — eski PuLP simülasyonu
         if hasattr(self, "sol_status"):
-            try:
+            with contextlib.suppress(AttributeError):
                 del self.sol_status
-            except AttributeError:
-                pass
         return ret
 
     monkeypatch.setattr(pulp.LpProblem, "solve", fake_solve)

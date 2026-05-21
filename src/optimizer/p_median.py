@@ -131,7 +131,18 @@ def _make_ilp_solver(engine: str, time_limit_sn: int | None, cb: Callable | None
     try:
         return SolverCls(msg=0, timeLimit=time_limit_sn), key
     except TypeError:
-        # Bazı solver'lar timeLimit'i farklı argümanla kabul ediyor
+        # Solver `timeLimit` kwarg'ını tanımıyor (örn. eski PuLP API farkı).
+        # Akademik şeffaflık: sessizce sınırsız çalıştırmak YANLIŞ — kullanıcı
+        # "300 sn yazdım" sanıp solver'ı kontrolsüz bırakmasın. Hem log'a hem
+        # progress callback'e net uyarı düşür.
+        warning = (
+            f"⚠ ILP engine '{key}' does not accept the standard "
+            f"timeLimit kwarg — falling back to NO time limit. "
+            f"If the solve hangs, abort manually or use a different engine."
+        )
+        log.warning(warning)
+        if cb is not None:
+            cb(warning)
         return SolverCls(msg=0), key
 
 # Hedef fonksiyon modları:
@@ -1239,6 +1250,7 @@ def duyarlilik_analizi(
     solver: SolverMode = "auto",
     time_limit_sn: int | None = None,
     allow_fallback: bool = True,
+    ilp_engine: str = "cbc",
     iter_cb: Callable[[int, int, int], None] | None = None,
 ) -> pd.DataFrame:
     """
@@ -1273,6 +1285,7 @@ def duyarlilik_analizi(
             amac=amac, progress_cb=progress_cb,
             solver=solver, time_limit_sn=time_limit_sn,
             allow_fallback=allow_fallback,
+            ilp_engine=ilp_engine,
         )
         satirlar.append({
             "p":                       p,
