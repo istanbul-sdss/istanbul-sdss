@@ -41,6 +41,12 @@ sys.path.insert(0, str(Path(__file__).parent))
 
 from components import cards
 from components.domain_config import DEFAULT_DOMAIN_KEY, DOMAINS, get_domain
+from components.signatures import (
+    ODSignature,
+    ResultSignature,
+    coerce_signature,
+    signature_diff,
+)
 from components.styles import TOKENS, configure_page
 from components.translations import to_english
 from src.config.settings import CACHE_DIR, ISTANBUL_ILCELER
@@ -1256,12 +1262,13 @@ if _have("opt_buildings"):
                     st.session_state["opt_transport_mode_used"] = mode
                     st.session_state["opt_walk_speed_used"] = float(travel_speed)
                     # Stale-result banner için OD'nin hangi parametrelerle
-                    # üretildiğini bir signature'da tut. Kullanıcı sonradan
-                    # speed/district/mode değiştirirse banner gösterilir.
-                    st.session_state["opt_od_signature"] = (
-                        st.session_state.opt_district,
-                        mode,
-                        float(travel_speed),
+                    # üretildiğini bir signature'da tut. Tipli dataclass
+                    # (eskiden tuple'du; alan eklendikçe len()-bazlı
+                    # backward-compat patches yığılıyordu — audit 3.3).
+                    st.session_state["opt_od_signature"] = ODSignature(
+                        district=st.session_state.opt_district,
+                        mode=mode,
+                        speed_kph=float(travel_speed),
                     )
                     st.session_state.opt_result    = None
                     progress.progress(1.0)
@@ -1285,38 +1292,22 @@ if _have("opt_buildings"):
 
     # OD summary
     if _have("opt_od_matrix"):
-        # Stale-result banner: OD hesaplandığı andaki (district, mode, speed)
-        # signature ile UI'daki güncel değerleri karşılaştır. Fark varsa
-        # kullanıcı parametre değiştirmiş ama "Compute OD matrix"i tekrar
-        # tetiklememiş → mevcut OD eski → uyar.
-        _od_sig = st.session_state.get("opt_od_signature")
-        _current_sig = (
-            st.session_state.opt_district,
-            mode,
-            float(travel_speed),
+        # Stale-result banner: OD hesaplandığı andaki signature ile UI'daki
+        # güncel değerleri karşılaştır (typed ODSignature, eski tuple'lar
+        # coerce_signature ile parse edilir).
+        _od_sig = coerce_signature(
+            st.session_state.get("opt_od_signature"), ODSignature
         )
-        if _od_sig is not None and _od_sig != _current_sig:
-            _changed_bits = []
-            # Eski signature 2-tuple olabilir (walking-only zamanları); mode
-            # alanı yoksa "walk" varsayalım — geriye dönük güvenli.
-            _old_district = _od_sig[0]
-            _old_mode = _od_sig[1] if len(_od_sig) >= 3 else MODE_WALK
-            _old_speed = _od_sig[-1]
-            if _old_district != _current_sig[0]:
-                _changed_bits.append(
-                    f"district ({_old_district!r} → {_current_sig[0]!r})"
-                )
-            if _old_mode != _current_sig[1]:
-                _changed_bits.append(
-                    f"transport mode ({_old_mode} → {_current_sig[1]})"
-                )
-            if abs(_old_speed - _current_sig[2]) > 1e-6:
-                _changed_bits.append(
-                    f"speed ({_old_speed:.2f} → {_current_sig[2]:.2f} km/h)"
-                )
+        _current_sig = ODSignature(
+            district=st.session_state.opt_district,
+            mode=mode,
+            speed_kph=float(travel_speed),
+        )
+        _changes = signature_diff(_od_sig, _current_sig)
+        if _changes:
             st.warning(
                 "⚠ **OD matrix is stale.** Parameters changed: "
-                + ", ".join(_changed_bits)
+                + ", ".join(_changes)
                 + ". The KPIs below reflect the old computation — "
                 "do not run optimization without re-running "
                 "**Compute OD matrix**."
@@ -1581,9 +1572,22 @@ if _have("opt_od_matrix"):
         # Stale-banner signature. Density sadece capacity ON iken anlamlı —
         # OFF iken None'a normalize ediyoruz ki density slider değişimi
         # capacity OFF iken stale uyarısı tetiklemesin.
+        # Typed ResultSignature kullanıyoruz (eski tuple'lar coerce edilir).
+        # K-Med fields'leri session_state.get ile okuyoruz çünkü Advanced
+        # expander bu satırdan sonra render oluyor.
         _live_density = float(m2_per_person) if capacity else None
-        st.session_state["opt_current_inputs"] = (
-            int(p), amac, bool(capacity), solver_mode, _live_density,
+        _live_n_restarts = int(st.session_state.get("opt_kmed_n_restarts", 1))
+        _live_seed: int | None = None
+        if st.session_state.get("opt_kmed_seed_enabled", False):
+            _live_seed = int(st.session_state.get("opt_kmed_seed_value", 42))
+        st.session_state["opt_current_inputs"] = ResultSignature(
+            p=int(p),
+            amac=amac,
+            capacity=bool(capacity),
+            solver_mode=solver_mode,
+            m2_per_person=_live_density,
+            n_restarts=_live_n_restarts,
+            random_state=_live_seed,
         )
 
         st.markdown(
@@ -1926,12 +1930,17 @@ if _have("opt_od_matrix"):
                     st.session_state["opt_m2_per_person_used"] = (
                         float(m2_per_person) if capacity else None
                     )
-                    # Stale-banner: Step 3 sonucu için signature kaydet.
-                    # Kullanıcı sonra p / amac / capacity / solver değişirse
-                    # Step 4 sonuç ekranında uyarı görünür.
-                    st.session_state["opt_result_signature"] = (
-                        int(p), amac, bool(capacity), solver_mode,
-                        float(m2_per_person) if capacity else None,
+                    # Stale-banner: Step 3 sonucu için typed signature kaydet.
+                    # Kullanıcı sonra p / amac / capacity / solver / density /
+                    # K-Med restarts/seed değiştirirse Step 4'te uyarı.
+                    st.session_state["opt_result_signature"] = ResultSignature(
+                        p=int(p),
+                        amac=amac,
+                        capacity=bool(capacity),
+                        solver_mode=solver_mode,
+                        m2_per_person=(float(m2_per_person) if capacity else None),
+                        n_restarts=int(kmed_n_restarts),
+                        random_state=kmed_random_state,
                     )
 
                     # Fizibilite uyarısı varsa kullanıcıya göster (kapasite/ulaşılabilirlik)
@@ -2049,8 +2058,14 @@ if _have("opt_od_matrix"):
                         # ON sonucunu birincil sayar (capacity-aware analiz).
                         st.session_state.opt_result = result_on
                         st.session_state["opt_m2_per_person_used"] = float(m2_per_person)
-                        st.session_state["opt_result_signature"] = (
-                            int(p), amac, True, solver_mode, float(m2_per_person),
+                        st.session_state["opt_result_signature"] = ResultSignature(
+                            p=int(p),
+                            amac=amac,
+                            capacity=True,
+                            solver_mode=solver_mode,
+                            m2_per_person=float(m2_per_person),
+                            n_restarts=int(kmed_n_restarts),
+                            random_state=kmed_random_state,
                         )
                         st.rerun()
                     except Exception as e:
@@ -2064,49 +2079,25 @@ if _have("opt_od_matrix"):
 if _have("opt_result"):
     result: PMedianResult = st.session_state.opt_result
 
-    # Stale-result banner (Step 3 sonrası parametre değişti mi?). Result
-    # üretildiğindeki (p, amac, capacity, solver) ile UI'daki güncel
-    # değerleri karşılaştır. Fark varsa kullanıcı sonucu yorumlarken
-    # yanlış parametre setini sandığını bilmesin.
-    #
-    # H-Opt-2 düzeltmesi: önceki sürüm `dir()` ile yerel scope'u sorgulayıp
-    # `p`, `amac`, vs. tanımlı mı kontrol ediyordu. Streamlit script rerun'unda
-    # Step 3 bloğu çalışmadıysa (örn. opt_buildings None iken eski result
-    # session'da kalmışsa) bu kontroller False döner, sonuç solver_mode için
-    # None ile karşılaştırma → false-positive uyarı. Şimdi Step 3 her render
-    # olduğunda `opt_current_inputs` yazıyor; burada onu okuyoruz.
-    _res_sig = st.session_state.get("opt_result_signature")
-    _current_res_sig = st.session_state.get("opt_current_inputs")
-    if (
-        _res_sig is not None
-        and _current_res_sig is not None
-        and _res_sig != _current_res_sig
-    ):
-        _diff = []
-        if _res_sig[0] != _current_res_sig[0]:
-            _diff.append(f"p ({_res_sig[0]} → {_current_res_sig[0]})")
-        if _res_sig[1] != _current_res_sig[1]:
-            _diff.append(f"objective ({_res_sig[1]} → {_current_res_sig[1]})")
-        if _res_sig[2] != _current_res_sig[2]:
-            _diff.append(
-                f"capacity ({'on' if _res_sig[2] else 'off'} → "
-                f"{'on' if _current_res_sig[2] else 'off'})"
-            )
-        if _res_sig[3] != _current_res_sig[3]:
-            _diff.append(f"solver ({_res_sig[3]} → {_current_res_sig[3]})")
-        # 5. eleman density — sadece capacity ON iken karşılaştırılır
-        if len(_res_sig) > 4 and len(_current_res_sig) > 4:
-            if _res_sig[4] != _current_res_sig[4]:
-                _old_d = "N/A" if _res_sig[4] is None else f"{_res_sig[4]:.2f}"
-                _new_d = "N/A" if _current_res_sig[4] is None else f"{_current_res_sig[4]:.2f}"
-                _diff.append(f"density m²/person ({_old_d} → {_new_d})")
-        if _diff:
-            st.warning(
-                "⚠ **Result is stale.** Parameters changed: "
-                + ", ".join(_diff)
-                + ". The KPIs below reflect the **old solution** — "
-                "do not produce reports without re-running **Run optimization**."
-            )
+    # Stale-result banner (Step 3 sonrası parametre değişti mi?).
+    # Typed ResultSignature kullanıyoruz; eski tuple session'lar
+    # coerce_signature ile geriye uyumlu parse edilir.
+    # signature_diff insancıl format string'leri döner — alan başına
+    # eski/yeni değerleri okunabilir biçimde gösterir.
+    _res_sig = coerce_signature(
+        st.session_state.get("opt_result_signature"), ResultSignature
+    )
+    _current_res_sig = coerce_signature(
+        st.session_state.get("opt_current_inputs"), ResultSignature
+    )
+    _diff = signature_diff(_res_sig, _current_res_sig)
+    if _diff:
+        st.warning(
+            "⚠ **Result is stale.** Parameters changed: "
+            + ", ".join(_diff)
+            + ". The KPIs below reflect the **old solution** — "
+            "do not produce reports without re-running **Run optimization**."
+        )
 
     if result.amac == "min_max":
         objective_txt = "Min-Max (fairness)"
