@@ -45,10 +45,16 @@ def test_avg_weight_label_is_not_m2():
     assert "Avg est. population" in domain_cfg, (
         "Earthquake DomainConfig.weight_label 'Avg est. population' olmalı"
     )
-    # Optimization_Tool.py artık `domain.weight_label` kullanmalı (string'i
-    # hardcoded yazmak yerine).
-    assert "domain.weight_label" in src, (
-        "Optimization_Tool.py KPI label için domain.weight_label kullanmalı"
+    # Sprint 2 #8 phase 3 sonrası Step 1 KPI cards optimizer_steps/step1_data.py'a
+    # taşındı. Ana modül veya step1_data.py'dan biri `domain.weight_label`
+    # kullanıyor olmalı.
+    try:
+        step1_src = Path("optimizer_steps/step1_data.py").read_text(encoding="utf-8")
+    except FileNotFoundError:
+        step1_src = ""
+    assert "domain.weight_label" in src or "domain.weight_label" in step1_src, (
+        "Optimization_Tool.py veya optimizer_steps/step1_data.py KPI label "
+        "için domain.weight_label kullanmalı"
     )
 
 
