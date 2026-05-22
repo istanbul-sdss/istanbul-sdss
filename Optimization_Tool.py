@@ -1685,6 +1685,56 @@ if _have("opt_od_matrix"):
                 disabled=(solver_mode == "kmedoids"),
             )
 
+        # ── Gelişmiş: K-Medoids detayları (multi-start + stable seed) ──
+        # Sprint 2 #14 + #20: heuristic kalitesini artırmak ve tez figürlerini
+        # reprodüklenebilir kılmak için iki yeni kontrol.
+        with st.expander("⚙️ Advanced K-Medoids options"):
+            kmed_n_restarts = st.number_input(
+                "Multi-start restarts (n_restarts)",
+                min_value=1,
+                max_value=20,
+                value=1,
+                step=1,
+                key="opt_kmed_n_restarts",
+                help=(
+                    "How many independent K-Medoids runs to perform. The "
+                    "first restart uses the deterministic greedy initialization "
+                    "(backward-compatible); the remaining N−1 restarts seed "
+                    "from a random first medoid. The best (lowest cost) "
+                    "result is returned.\n\n"
+                    "• **1** (default) — single-shot, fastest, may stick in "
+                    "local optima.\n"
+                    "• **3–5** — recommended for academic-quality results; "
+                    "tradeoff is 3–5× slower runtime.\n"
+                    "• **10+** — extensive search, useful for tough plateau "
+                    "instances."
+                ),
+                disabled=(solver_mode == "ilp"),
+            )
+            _kmed_seed_enabled = st.checkbox(
+                "Pin random seed (reproducible results)",
+                value=False,
+                key="opt_kmed_seed_enabled",
+                help=(
+                    "When enabled, the multi-start restarts use a fixed seed "
+                    "so the same problem produces the same result run after "
+                    "run. Useful for thesis figures and academic comparison. "
+                    "Default is OFF (system random)."
+                ),
+                disabled=(solver_mode == "ilp") or (int(kmed_n_restarts) <= 1),
+            )
+            kmed_random_state: int | None = None
+            if _kmed_seed_enabled and int(kmed_n_restarts) > 1:
+                kmed_random_state = int(st.number_input(
+                    "Seed value",
+                    min_value=0,
+                    max_value=2**31 - 1,
+                    value=42,
+                    step=1,
+                    key="opt_kmed_seed_value",
+                    help="Any non-negative integer; default 42.",
+                ))
+
         # Çözüm yöntem rozeti — gerçek seçimi yansıtır
         if solver_mode == "auto":
             method_txt = (
@@ -1756,6 +1806,8 @@ if _have("opt_od_matrix"):
                             time_limit_sn=effective_time_limit,
                             unlimited=ilp_unlimited,
                             allow_fallback=allow_fallback,
+                            n_restarts=int(kmed_n_restarts),
+                            random_state=kmed_random_state,
                             ilp_engine=ilp_engine,
                             iter_cb=_sens_iter_cb,
                         )
@@ -1865,6 +1917,8 @@ if _have("opt_od_matrix"):
                         time_limit_sn=effective_time_limit,
                         unlimited=ilp_unlimited,
                         allow_fallback=allow_fallback,
+                        n_restarts=int(kmed_n_restarts),
+                        random_state=kmed_random_state,
                         ilp_engine=ilp_engine,
                     )
                     st.session_state.opt_result = result
@@ -1951,6 +2005,8 @@ if _have("opt_od_matrix"):
                             time_limit_sn=effective_time_limit,
                             unlimited=ilp_unlimited,
                             allow_fallback=allow_fallback,
+                            n_restarts=int(kmed_n_restarts),
+                            random_state=kmed_random_state,
                             ilp_engine=ilp_engine,
                         )
                         # ON: capacity recompute with slider density
@@ -1974,6 +2030,8 @@ if _have("opt_od_matrix"):
                             time_limit_sn=effective_time_limit,
                             unlimited=ilp_unlimited,
                             allow_fallback=allow_fallback,
+                            n_restarts=int(kmed_n_restarts),
+                            random_state=kmed_random_state,
                             ilp_engine=ilp_engine,
                         )
                         st.session_state["opt_compare_results"] = {
@@ -2639,6 +2697,8 @@ if _have("opt_result"):
                         "p (areas opened)",
                         "Method",
                         "ILP engine used",
+                        "K-Medoids restarts",
+                        "K-Medoids random seed",
                         "Convergence status",
                         "Fallback reason",
                         "Solve time (s)",
@@ -2683,6 +2743,15 @@ if _have("opt_result"):
                         # K-Med yolundan dönen sonuçta None → "N/A".
                         (result.ilp_engine_used.upper()
                          if result.ilp_engine_used else "N/A (K-Medoids)"),
+                        # K-Med restarts (multi-start sayısı) + seed
+                        # ILP yolunda anlam taşımaz, ama transparency için
+                        # her zaman kaydediyoruz.
+                        int(st.session_state.get("opt_kmed_n_restarts", 1)),
+                        (
+                            str(st.session_state.get("opt_kmed_seed_value", ""))
+                            if st.session_state.get("opt_kmed_seed_enabled", False)
+                            else "(unseeded)"
+                        ),
                         # Convergence status — solver tipine göre:
                         #   • K-Med converged → "Converged in N iter(s)"
                         #   • K-Med MAX_ITER → "NOT converged — hit MAX_ITER=N"

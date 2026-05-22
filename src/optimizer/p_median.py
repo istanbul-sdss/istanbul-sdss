@@ -322,6 +322,8 @@ def coz(
     unlimited: bool = False,
     allow_fallback: bool = True,
     ilp_engine: str = "cbc",
+    n_restarts: int = 1,
+    random_state: int | None = None,
 ) -> PMedianResult:
     """
     OD matrisi ve p değerine göre p-median çözer.
@@ -362,6 +364,16 @@ def coz(
                        çözülür; CBC'de günler veya hiç bitmez. list_available_
                        ilp_engines() ile UI'da seçim sunulur; kurulu olmayan
                        engine istendiğinde CBC'ye düşülür ve log'a not düşer.
+        n_restarts   : K-Medoids multi-start restart sayısı (default 1 =
+                       backward-compat tek-shot). >1 verildiğinde 1. restart
+                       deterministik greedy init, kalan restartlar rastgele
+                       başlangıç medoid'ten greedy doldurur. En düşük maliyetli
+                       sonuç döner. Patolojik plateau senaryolarında MAX_ITER
+                       takılma riski azalır; akademik kalite için n_restarts=3
+                       önerilir.
+        random_state : Multi-start randomization için seed (default None →
+                       sistem random). Aynı seed ile aynı problem aynı sonucu
+                       verir → tez figürleri reprodüklenebilir.
     """
     def cb(msg: str):
         log.info(msg)
@@ -423,13 +435,16 @@ def coz(
             time_limit_sn=_effective_tl,
             allow_fallback=allow_fallback,
             ilp_engine=ilp_engine,
+            n_restarts=n_restarts,
+            random_state=random_state,
         )
     else:
         # P2.1: amac parametresi de aktarılır. Önceden _coz_kmedoids `amac`
         # almıyordu, kullanıcı `min_max` seçse bile sonuç sessizce `min_sum`
         # döndürüyordu (audit P2.1).
         result = _coz_kmedoids(
-            od, binalar_gdf, toplanma_gdf, p, kapasite, max_sure_dk, amac, cb
+            od, binalar_gdf, toplanma_gdf, p, kapasite, max_sure_dk, amac, cb,
+            n_restarts=n_restarts, random_state=random_state,
         )
 
     result.fizibilite_uyarisi = fizibilite_uyarisi
@@ -524,6 +539,8 @@ def _coz_ilp(
     time_limit_sn: int | None = ILP_TIME_LIMIT_SN,
     allow_fallback: bool = True,
     ilp_engine: str = "cbc",
+    n_restarts: int = 1,
+    random_state: int | None = None,
 ) -> PMedianResult:
     """
     time_limit_sn=None → solver'a `timeLimit` parametresi None olarak iletilir
@@ -675,7 +692,8 @@ def _coz_ilp(
         cb(f"ILP failed → falling back to K-Medoids. Reason: {sebep}")
         # P2.1: amac fallback'te de korunur (önceden parametre yoktu).
         result = _coz_kmedoids(
-            od, binalar_gdf, toplanma_gdf, p, kapasite, max_sure_dk, amac, cb
+            od, binalar_gdf, toplanma_gdf, p, kapasite, max_sure_dk, amac, cb,
+            n_restarts=n_restarts, random_state=random_state,
         )
         result.fallback_nedeni = sebep
         result.ilp_status = status
@@ -732,6 +750,8 @@ def _coz_kmedoids(
     max_sure_dk: float | None,
     amac: ObjectiveMode,
     cb: Callable,
+    n_restarts: int = 1,
+    random_state: int | None = None,
 ) -> PMedianResult:
     """
     Greedy başlangıç + local search ile k-medoids.
@@ -769,8 +789,6 @@ def _coz_kmedoids(
         kapasiteler = toplanma_gdf["kapasite"].values.astype(float)
         cb(f"K-Medoids in capacity-aware mode (total: {kapasiteler.sum():,.0f})")
 
-    cb("K-Medoids starting (greedy init + local search)...")
-
     # ── Ceza stratejisi ──────────────────────────────────────────────────────
     # Ulaşılamaz (inf) hücreler için maliyet hesabında sabit, anlamlı bir ceza
     # kullanıyoruz. Çok büyük bir sayı (1e9) kullanmak local search'ü dejenere
@@ -778,119 +796,173 @@ def _coz_kmedoids(
     ceza_dk = float(max_sure_dk) * 2 if max_sure_dk else 120.0
     od_ceza = np.where(np.isfinite(od_eff), od_eff, ceza_dk)
 
-    # ── Greedy başlangıç ──────────────────────────────────────────────────────
-    # Her hedef için en uygun ilk medoid:
-    #   min_sum  : toplam ağırlıklı süreyi minimize eden alan
-    #   min_max  : en kötü süreyi minimize eden alan
-    #   min_p95  : kişi-ağırlıklı p95'i minimize eden alan
-    if amac == "min_max":
-        ilk_kotu = od_ceza.max(axis=0)
-        secili = [int(np.argmin(ilk_kotu))]
-    elif amac == "min_p95":
-        # Her aday alan tek başına seçilse, p95 ne olur?
-        ilk_p95 = np.array([
-            _weighted_percentile(od_ceza[:, j], agirliklar, P95_PERCENTILE)
-            for j in range(n_alan)
-        ])
-        secili = [int(np.argmin(ilk_p95))]
-    else:
-        maliyet = (od_ceza * agirliklar[:, None]).sum(axis=0)
-        secili = [int(np.argmin(maliyet))]
-
-    for _ in range(p - 1):
-        min_sure = od_ceza[:, secili].min(axis=1)
-        kalan = [j for j in range(n_alan) if j not in secili]
-        if not kalan:
-            break
-        if amac == "min_max":
-            kazanclar = np.array([
-                np.minimum(min_sure, od_ceza[:, j]).max()
-                for j in kalan
-            ])
-        elif amac == "min_p95":
-            kazanclar = np.array([
-                _weighted_percentile(
-                    np.minimum(min_sure, od_ceza[:, j]),
-                    agirliklar,
-                    P95_PERCENTILE,
-                )
-                for j in kalan
-            ])
-        else:
-            kazanclar = np.array([
-                (np.minimum(min_sure, od_ceza[:, j]) * agirliklar).sum()
-                for j in kalan
-            ])
-        secili.append(kalan[int(np.argmin(kazanclar))])
-
-    cb(f"Greedy init complete: {secili}")
-
-    # ── Local search (swap) ───────────────────────────────────────────────────
-    # Cost fonksiyonu `amac`'a göre değişir. min_max için en kötü atama
-    # süresini optimize eder; min_sum için toplam ağırlıklı süreyi.
+    # ── Cost fonksiyonu (her restart paylaşır) ───────────────────────────────
     def toplam_maliyet(secim: list[int]) -> float:
         if kapasiteler is not None:
             _, sureler, _ = _assign_with_capacity(
                 od_eff, agirliklar, secim, kapasiteler
             )
-            # Ulaşılamayanlar (kapasite yetersiz VEYA ağ kopuk) için ceza uygula
             sureler = np.where(np.isfinite(sureler), sureler, ceza_dk)
         else:
             sureler = od_ceza[:, secim].min(axis=1)
-
         if amac == "min_max":
-            # En kötü atama süresi (worst-case fairness)
             return float(sureler.max())
         if amac == "min_p95":
-            # Nüfus-ağırlıklı p95 — outlier'lara dirençli fairness
             return _weighted_percentile(sureler, agirliklar, P95_PERCENTILE)
         return float((sureler * agirliklar).sum())
 
-    mevcut_maliyet = toplam_maliyet(secili)
-    gelisim = True
-    iterasyon = 0
-    # MAX_ITER lokal sigorta. KMEDOIDS_MAX_ITER (settings.py'da 200) çoğu
-    # gerçek senaryoda yeterli — pratikte 5-30 iterasyonda yakınsanır.
-    # Sigortanın asıl amacı patolojik salınım/plateau senaryolarında
-    # sonsuz döngüyü önlemek.
-    # Future work (R5): MAX_ITER'e ulaşıldığında multi-start restart
-    # (farklı greedy init ile 2-3 deneme, en iyiyi al). Şimdilik yakınsama
-    # durumu PMedianResult.kmedoids_converged ile şeffaf raporlanıyor —
-    # kullanıcı sonucun kalitesini yorumlayabilir.
-    MAX_ITER = KMEDOIDS_MAX_ITER
+    # ── Tek restart helper'ı ─────────────────────────────────────────────────
+    def _kmed_single_run(
+        rs: np.random.RandomState | None,
+    ) -> tuple[list[int], float, bool, int]:
+        """
+        Bir K-Medoids restart'ı: greedy init + local search swap.
+        rs=None ise deterministik greedy (eski tek-shot davranışı);
+        rs verildiyse ilk medoid rastgele seçilir, kalan p-1 medoid greedy.
+        Dönüş: (secili, cost, converged, iterasyon)
+        """
+        # ── Greedy başlangıç ────────────────────────────────────────────────
+        if rs is None:
+            # Deterministik: en iyi tek-medoid amaç fonksiyonuna göre
+            if amac == "min_max":
+                ilk_kotu = od_ceza.max(axis=0)
+                secili_local = [int(np.argmin(ilk_kotu))]
+            elif amac == "min_p95":
+                ilk_p95 = np.array([
+                    _weighted_percentile(od_ceza[:, j], agirliklar, P95_PERCENTILE)
+                    for j in range(n_alan)
+                ])
+                secili_local = [int(np.argmin(ilk_p95))]
+            else:
+                maliyet = (od_ceza * agirliklar[:, None]).sum(axis=0)
+                secili_local = [int(np.argmin(maliyet))]
+        else:
+            # Rastgele ilk medoid → çeşitli başlangıç noktaları
+            secili_local = [int(rs.randint(n_alan))]
 
-    while gelisim and iterasyon < MAX_ITER:
-        gelisim = False
-        iterasyon += 1
-        for i_secili, _acik_j in enumerate(secili):
-            for kapali_j in range(n_alan):
-                if kapali_j in secili:
-                    continue
-                yeni_secim = secili[:i_secili] + [kapali_j] + secili[i_secili+1:]
-                yeni_maliyet = toplam_maliyet(yeni_secim)
-                if yeni_maliyet < mevcut_maliyet - 1e-6:
-                    secili = yeni_secim
-                    mevcut_maliyet = yeni_maliyet
-                    gelisim = True
-                    break
-            if gelisim:
+        # Kalan p-1 medoid: greedy (her durumda deterministik ekleme)
+        for _ in range(p - 1):
+            min_sure = od_ceza[:, secili_local].min(axis=1)
+            kalan = [j for j in range(n_alan) if j not in secili_local]
+            if not kalan:
                 break
+            if amac == "min_max":
+                kazanclar = np.array([
+                    np.minimum(min_sure, od_ceza[:, j]).max()
+                    for j in kalan
+                ])
+            elif amac == "min_p95":
+                kazanclar = np.array([
+                    _weighted_percentile(
+                        np.minimum(min_sure, od_ceza[:, j]),
+                        agirliklar,
+                        P95_PERCENTILE,
+                    )
+                    for j in kalan
+                ])
+            else:
+                kazanclar = np.array([
+                    (np.minimum(min_sure, od_ceza[:, j]) * agirliklar).sum()
+                    for j in kalan
+                ])
+            secili_local.append(kalan[int(np.argmin(kazanclar))])
 
-    # Convergence durumu — döngüden çıkış sebebine göre üç durumlu ayrım
-    # değil iki durumlu (None ILP'ye saklı):
-    #   • gelisim=False ile çıktıysak → "no improving swap found" → CONVERGED
-    #   • iterasyon >= MAX_ITER ise → takıldı, certified değil
-    # NOT: gelisim=False ANCAK iterasyon=MAX_ITER aynı anda olabilir; bu
-    # durumda son tur tek improving swap buldu ve hemen sonra MAX_ITER
-    # ile durdu — pratikte "takıldı" sayılır. `iterasyon >= MAX_ITER`
-    # önceliklidir.
-    if iterasyon >= MAX_ITER:
-        kmedoids_converged = False
-        cb(f"Local search hit MAX_ITER={MAX_ITER} limit (cost={mevcut_maliyet:.1f}) "
-           f"— result is best-found, NOT certified locally optimal")
+        # ── Local search (swap) ─────────────────────────────────────────────
+        mevcut = toplam_maliyet(secili_local)
+        gelisim = True
+        it = 0
+        while gelisim and it < KMEDOIDS_MAX_ITER:
+            gelisim = False
+            it += 1
+            for i_sec, _acik_j in enumerate(secili_local):
+                for kapali_j in range(n_alan):
+                    if kapali_j in secili_local:
+                        continue
+                    yeni = secili_local[:i_sec] + [kapali_j] + secili_local[i_sec+1:]
+                    yeni_cost = toplam_maliyet(yeni)
+                    if yeni_cost < mevcut - 1e-6:
+                        secili_local = yeni
+                        mevcut = yeni_cost
+                        gelisim = True
+                        break
+                if gelisim:
+                    break
+
+        # Convergence raporlaması
+        converged = (it < KMEDOIDS_MAX_ITER)
+        return secili_local, mevcut, converged, it
+
+    # ── Multi-restart loop ───────────────────────────────────────────────────
+    # 1. restart: deterministik greedy (rs=None → backward-compat)
+    # 2..N restartlar: random_state'i seed olarak kullanan farklı RNG'ler →
+    # her restart farklı bir başlangıç medoid'den greedy doldurur. En düşük
+    # maliyetli sonucu seçeriz. Local-optimum'a takılma riski azalır.
+    n_restarts_eff = max(1, int(n_restarts))
+    cb(
+        f"K-Medoids starting (greedy init + local search"
+        f"{f', {n_restarts_eff} restarts, seed={random_state}' if n_restarts_eff > 1 else ''})..."
+    )
+
+    best_secili: list[int] = []
+    best_maliyet = float("inf")
+    best_converged = False
+    best_iterasyon = 0
+    best_restart_idx = 0
+    all_costs: list[float] = []
+
+    for r_idx in range(n_restarts_eff):
+        if r_idx == 0:
+            rs_run: np.random.RandomState | None = None  # deterministik
+        else:
+            # Her restart farklı RNG state — seed verildiyse reprodüklenebilir
+            _seed = (
+                (random_state + r_idx) if random_state is not None
+                else int(np.random.SeedSequence().entropy % (2**31 - 1)) + r_idx
+            )
+            rs_run = np.random.RandomState(_seed)
+
+        s_local, c_local, conv_local, iter_local = _kmed_single_run(rs_run)
+        all_costs.append(c_local)
+        if c_local < best_maliyet - 1e-9:
+            best_secili = s_local
+            best_maliyet = c_local
+            best_converged = conv_local
+            best_iterasyon = iter_local
+            best_restart_idx = r_idx
+
+    # Eski isimleri kullan (aşağıdaki Final assignment + reporting değişmesin)
+    secili = best_secili
+    mevcut_maliyet = best_maliyet
+    kmedoids_converged = best_converged
+    iterasyon = best_iterasyon
+
+    if n_restarts_eff > 1:
+        cb(
+            f"Multi-start summary: {n_restarts_eff} restarts, "
+            f"best cost={best_maliyet:.1f} (restart #{best_restart_idx}), "
+            f"costs={[f'{c:.1f}' for c in all_costs]}"
+        )
+        if not best_converged:
+            cb(
+                f"⚠ Best restart hit MAX_ITER={KMEDOIDS_MAX_ITER} "
+                f"— result is best-found, NOT certified locally optimal."
+            )
     else:
-        kmedoids_converged = True
-        cb(f"Local search converged: {iterasyon} iterations, cost={mevcut_maliyet:.1f}")
+        cb(f"Greedy init complete: {secili}")
+
+    # Convergence durumu artık _kmed_single_run içinde hesaplanıp
+    # kmedoids_converged + iterasyon değişkenlerine multi-restart loop'tan
+    # geliyor. Tek-restart (backward-compat) durumunda da aynı yol — bu
+    # blok eskiden duplicate hesaplama yapıyordu, kaldırıldı.
+    if n_restarts_eff == 1:
+        if kmedoids_converged:
+            cb(f"Local search converged: {iterasyon} iterations, cost={mevcut_maliyet:.1f}")
+        else:
+            cb(
+                f"Local search hit MAX_ITER={KMEDOIDS_MAX_ITER} limit "
+                f"(cost={mevcut_maliyet:.1f}) — result is best-found, "
+                f"NOT certified locally optimal"
+            )
 
     # ── Final assignment ──────────────────────────────────────────────────────
     sebep_kodlari = None
