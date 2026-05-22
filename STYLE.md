@@ -98,6 +98,20 @@ estimated vs. inherited), surface the source in a `*_source` /
 can then filter on these in Excel/CSV, and the audit trail stays
 transparent.
 
+## Accessibility (a11y)
+
+- Streamlit widget'larında `label_visibility="collapsed"` görsel
+  olarak label'ı gizler ama label argümanını **aria-label** olarak
+  korur — yani screen-reader bunu duyar. Bu yüzden `collapsed` modda
+  bile label string'i **anlamlı ve betimleyici** olmalı:
+  - ✅ `st.selectbox("District", ..., label_visibility="collapsed")`
+  - ❌ `st.selectbox("x", ..., label_visibility="collapsed")`
+  - ❌ `st.selectbox("", ..., label_visibility="collapsed")`
+- Minimum 3 karakter, "x"/"…"/"label" gibi placeholder'lar yasak.
+  `tests/test_a11y_widget_labels.py` bu kuralı otomatik denetler.
+- Renk kontrastı için: `components/styles.py` token paleti WCAG AA
+  hedefini tutar (KPI/sticky banner ≈ 7:1).
+
 ## Tests
 
 - Whenever you change a user-visible string that a test asserts on,
