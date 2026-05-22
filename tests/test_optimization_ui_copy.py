@@ -61,8 +61,17 @@ def test_avg_weight_label_is_not_m2():
 def test_enforce_hard_limit_help_mentions_inf_not_penalty():
     """'Enforce hard walking-time limit' toggle'ının help text'i hard-exclude
     semantiğini yansıtmalı — eski penalty yaklaşımı YOK; aşan çiftler
-    yasaklanır (hem EN 'forbidden' hem TR 'yasaklan' kabul)."""
+    yasaklanır (hem EN 'forbidden' hem TR 'yasaklan' kabul).
+
+    Sprint 2 #8 phase 5: Step 3 UI optimizer_steps/step3_solve.py'a
+    taşındı. Ana modül VEYA step3_solve.py'da semantik yansımalı.
+    """
     src = _read_opt_tool().lower()
-    assert ("forbidden" in src) or ("yasaklan" in src), (
+    try:
+        step3_src = Path("optimizer_steps/step3_solve.py").read_text(encoding="utf-8").lower()
+    except FileNotFoundError:
+        step3_src = ""
+    combined = src + step3_src
+    assert ("forbidden" in combined) or ("yasaklan" in combined), (
         "Toggle help text'inde hard-exclude semantiği (forbidden / yasaklan) geçmeli"
     )
