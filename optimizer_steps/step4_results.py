@@ -359,6 +359,67 @@ def render_step4_results(domain: DomainConfig) -> None:
 
         st.markdown("---")
 
+    # ── F7: K-Medoids convergence trajectory display ────────────────────
+    # Multi-start (n_restarts > 1) çalıştırıldığında her restart için
+    # iteration-başı cost trajectory'sini ayrı line olarak çiz. Tek-shot
+    # (n_restarts=1) durumunda tek bir line yine de gösterilir.
+    _traj = getattr(result, "kmedoids_trajectories", None)
+    if _traj is not None and len(_traj) > 0:
+        st.markdown("---")
+        st.markdown(
+            f"### 📉 K-Medoids convergence trajectory\n"
+            f"_Cost reduction at each 1-swap improvement, "
+            f"per restart ({len(_traj)} restart(s))._"
+        )
+        try:
+            import plotly.graph_objects as go
+            fig_t = go.Figure()
+            # En iyi restart'ı vurgulu çiz
+            best_idx_traj = min(range(len(_traj)),
+                                key=lambda k: _traj[k][-1] if _traj[k] else float("inf"))
+            for r_i, traj in enumerate(_traj):
+                if not traj:
+                    continue
+                is_best = (r_i == best_idx_traj)
+                fig_t.add_trace(go.Scatter(
+                    x=list(range(len(traj))),
+                    y=traj,
+                    mode="lines+markers",
+                    name=f"Restart #{r_i}{' (best)' if is_best else ''}",
+                    line=dict(
+                        width=3 if is_best else 1.5,
+                        color=TOKENS["success"] if is_best else None,
+                    ),
+                    marker=dict(size=6 if is_best else 4),
+                    hovertemplate=(
+                        f"Restart {r_i}<br>"
+                        "Step %{x}<br>Cost %{y:.2f}<extra></extra>"
+                    ),
+                ))
+            fig_t.update_layout(
+                title="Cost vs improvement step (per restart)",
+                font=dict(family="Inter, sans-serif", color=TOKENS["text"]),
+                plot_bgcolor="white",
+                paper_bgcolor="white",
+                height=400,
+                margin=dict(l=20, r=20, t=50, b=40),
+                xaxis=dict(title="Improvement step (0 = greedy init)",
+                           gridcolor="#F1F5F9", linecolor="#E2E8F0"),
+                yaxis=dict(title="Objective cost",
+                           gridcolor="#F1F5F9", linecolor="#E2E8F0"),
+                legend=dict(orientation="h", yanchor="bottom",
+                            y=1.02, xanchor="right", x=1),
+            )
+            st.plotly_chart(fig_t, width="stretch")
+            st.caption(
+                "💡 Each line tracks one restart's local-search descent. "
+                "Big initial gaps + plateau at the right = converged. The "
+                "best (lowest final cost) line is highlighted."
+            )
+        except ImportError:
+            pass
+        st.markdown("---")
+
     # ── F8: ILP engine benchmark display ────────────────────────────────
     _bench = st.session_state.get("opt_engine_benchmark")
     if _bench is not None and _bench.get("runs"):

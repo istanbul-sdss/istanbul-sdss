@@ -295,6 +295,12 @@ class PMedianResult:
     kmedoids_converged: bool | None = None
     kmedoids_iterations: int | None = None
 
+    # Multi-start convergence trajectory: bir liste içinde her restart için
+    # iteration-başı cost değerleri. UI tez raporu için line chart olarak
+    # gösterir (Step 4 → "K-Medoids convergence trajectory"). ILP yolundan
+    # dönen result'ta None.
+    kmedoids_trajectories: list[list[float]] | None = None
+
     # Hangi ILP engine'in gerçekten kullanıldığı (cbc / highs / gurobi / ...).
     # Kullanıcı Gurobi seçti ama kurulu değilse otomatik CBC'ye düştüğümüzde
     # bu alan "cbc" değerini taşır → UI/Excel akademik şeffaflık için
@@ -814,12 +820,15 @@ def _coz_kmedoids(
     # ── Tek restart helper'ı ─────────────────────────────────────────────────
     def _kmed_single_run(
         rs: np.random.RandomState | None,
-    ) -> tuple[list[int], float, bool, int]:
+    ) -> tuple[list[int], float, bool, int, list[float]]:
         """
         Bir K-Medoids restart'ı: greedy init + local search swap.
         rs=None ise deterministik greedy (eski tek-shot davranışı);
         rs verildiyse ilk medoid rastgele seçilir, kalan p-1 medoid greedy.
-        Dönüş: (secili, cost, converged, iterasyon)
+
+        Dönüş: (secili, cost, converged, iterasyon, trajectory)
+          trajectory: her iyileştirme adımındaki cost (greedy-init sonrası
+          başlangıç + her swap'tan sonra). Tez grafiği için kullanılır.
         """
         # ── Greedy başlangıç ────────────────────────────────────────────────
         if rs is None:
@@ -869,6 +878,10 @@ def _coz_kmedoids(
 
         # ── Local search (swap) ─────────────────────────────────────────────
         mevcut = toplam_maliyet(secili_local)
+        # Trajectory: ilk değer greedy-init sonrası cost. Her swap iyileştirme
+        # sonrası yeni cost eklenir. UI bunu line chart olarak gösterir
+        # (Step 4 → K-Medoids convergence trajectory).
+        trajectory: list[float] = [float(mevcut)]
         gelisim = True
         it = 0
         while gelisim and it < KMEDOIDS_MAX_ITER:
@@ -883,6 +896,7 @@ def _coz_kmedoids(
                     if yeni_cost < mevcut - 1e-6:
                         secili_local = yeni
                         mevcut = yeni_cost
+                        trajectory.append(float(mevcut))
                         gelisim = True
                         break
                 if gelisim:
@@ -890,7 +904,7 @@ def _coz_kmedoids(
 
         # Convergence raporlaması
         converged = (it < KMEDOIDS_MAX_ITER)
-        return secili_local, mevcut, converged, it
+        return secili_local, mevcut, converged, it, trajectory
 
     # ── Multi-restart loop ───────────────────────────────────────────────────
     # 1. restart: deterministik greedy (rs=None → backward-compat)
@@ -909,6 +923,7 @@ def _coz_kmedoids(
     best_iterasyon = 0
     best_restart_idx = 0
     all_costs: list[float] = []
+    all_trajectories: list[list[float]] = []
 
     for r_idx in range(n_restarts_eff):
         if r_idx == 0:
@@ -921,8 +936,9 @@ def _coz_kmedoids(
             )
             rs_run = np.random.RandomState(_seed)
 
-        s_local, c_local, conv_local, iter_local = _kmed_single_run(rs_run)
+        s_local, c_local, conv_local, iter_local, traj_local = _kmed_single_run(rs_run)
         all_costs.append(c_local)
+        all_trajectories.append(traj_local)
         if c_local < best_maliyet - 1e-9:
             best_secili = s_local
             best_maliyet = c_local
@@ -996,6 +1012,7 @@ def _coz_kmedoids(
         sebep_kodlari=sebep_kodlari,
         kmedoids_converged=kmedoids_converged,
         kmedoids_iterations=iterasyon,
+        kmedoids_trajectories=all_trajectories,
     )
 
 
@@ -1089,6 +1106,7 @@ def _build_result(
     # bunları doldurur.
     kmedoids_converged: bool | None = None,
     kmedoids_iterations: int | None = None,
+    kmedoids_trajectories: list[list[float]] | None = None,
     ilp_engine_used: str | None = None,
 ) -> PMedianResult:
 
@@ -1308,6 +1326,7 @@ def _build_result(
         kapasite_aktif         = kapasite_aktif,
         kmedoids_converged     = kmedoids_converged,
         kmedoids_iterations    = kmedoids_iterations,
+        kmedoids_trajectories  = kmedoids_trajectories,
         ilp_engine_used        = ilp_engine_used,
         alan_ozeti             = alan_ozeti,
     )
