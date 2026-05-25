@@ -720,4 +720,85 @@ def render_step3_solve(domain: DomainConfig) -> None:
                         st.error(f"Comparison failed: {e}")
                         log.exception("Capacity comparison error")
 
+        # ── Compare: Density sensitivity sweep (F5) ─────────────────────────
+        # Visualization sprint: AFAD reference yoğunluklarını yan yana
+        # karşılaştır. ρ = 1.0 (acil), 1.5 (default), 2.5 (uzun süreli
+        # barınma), 5.0 (geniş park). Aynı p ve hedef altında 4 çözüm.
+        # Sonuç: KPI tablosu + bar chart. Tez raporu Figure 5.5.
+        with st.expander("📐 Compare densities (ρ sweep — advanced)"):
+            st.markdown(
+                "Run the same problem with **four AFAD reference density "
+                "values** (1.0, 1.5, 2.5, 5.0 m²/person) — all with capacity "
+                "ON. The result is a KPI table + bar chart showing how the "
+                "density assumption shifts unreachable count and travel-time "
+                "metrics. Useful for the thesis density-sensitivity figure."
+            )
+            sweep_disabled = not area_available
+            if sweep_disabled:
+                st.info(
+                    "Density sweep requires assembly-area m² data — "
+                    "currently unavailable."
+                )
+            if st.button(
+                "🔬 Run density sweep (4 solves)",
+                key="opt_btn_density_sweep",
+                disabled=sweep_disabled or invalid_combo,
+                width="stretch",
+            ):
+                st.session_state.opt_logs = []
+                sweep_densities = [1.0, 1.5, 2.5, 5.0]
+                sweep_progress = st.progress(0.0)
+                sweep_status = st.empty()
+                sweep_results: list = []
+                try:
+                    from src.optimizer.population_estimator import (
+                        estimate_capacity_afad,
+                    )
+                    for i_d, rho in enumerate(sweep_densities):
+                        sweep_status.info(
+                            f"Solving for **ρ = {rho:.1f} m²/person** "
+                            f"({i_d + 1}/{len(sweep_densities)})…"
+                        )
+                        a_rho = st.session_state.opt_assembly
+                        if "area_m2" in a_rho.columns:
+                            a_rho = a_rho.copy()
+                            a_rho["kapasite"] = estimate_capacity_afad(
+                                a_rho["area_m2"],
+                                m2_per_person=float(rho),
+                            )
+                        r_rho = coz(
+                            st.session_state.opt_od_matrix,
+                            st.session_state.opt_buildings,
+                            a_rho,
+                            p=int(p),
+                            kapasite=True,
+                            max_sure_dk=None,
+                            amac=amac,
+                            progress_cb=log_cb,
+                            solver=solver_mode,
+                            time_limit_sn=effective_time_limit,
+                            unlimited=ilp_unlimited,
+                            allow_fallback=allow_fallback,
+                            n_restarts=int(kmed_n_restarts),
+                            random_state=kmed_random_state,
+                            ilp_engine=ilp_engine,
+                        )
+                        sweep_results.append({"density": float(rho), "result": r_rho})
+                        sweep_progress.progress((i_d + 1) / len(sweep_densities))
+                    sweep_status.success(
+                        f"✅ Density sweep complete ({len(sweep_densities)} runs). "
+                        f"Scroll to **Step 4 → Density sensitivity** for the table + chart."
+                    )
+                    st.session_state["opt_density_sweep"] = {
+                        "p": int(p),
+                        "amac": amac,
+                        "runs": sweep_results,
+                    }
+                    st.rerun()
+                except Exception as e:
+                    sweep_progress.empty()
+                    sweep_status.empty()
+                    st.error(f"Density sweep failed: {e}")
+                    log.exception("Density sweep error")
+
 

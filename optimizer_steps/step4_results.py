@@ -253,6 +253,112 @@ def render_step4_results(domain: DomainConfig) -> None:
             st.info(" ".join(hints))
         st.markdown("---")
 
+    # ── F5: Density sensitivity sweep display ──────────────────────────
+    # Step 3 → "Run density sweep" tıklandığında dolan opt_density_sweep
+    # ile gelen 4 sonucu yan yana KPI tablosu + bar chart olarak göster.
+    _sweep = st.session_state.get("opt_density_sweep")
+    if _sweep is not None and _sweep.get("runs"):
+        st.markdown("---")
+        st.markdown(
+            f"### 📐 Density sensitivity (ρ sweep)\n"
+            f"_Same problem (p={_sweep['p']}, objective={_sweep['amac']}) "
+            f"solved with **4 AFAD reference densities** — all capacity ON._"
+        )
+        _rows = []
+        for run in _sweep["runs"]:
+            r = run["result"]
+            _rows.append({
+                "Density (m²/person)": f"{run['density']:.1f}",
+                "Avg travel time (min)": round(r.ort_sure_dk, 2),
+                "Max travel time (min)": round(r.max_sure_dk, 2),
+                "P95 pop-w. (min)": round(r.p95_sure_dk, 2),
+                "Coverage <10 min (%)": round(r.kapsama_10dk_pct, 1),
+                "Pop coverage <10 min (%)": round(r.nufus_kapsama_10dk_pct, 1),
+                "Unreachable buildings": r.ulasilamaz_sayisi,
+                "Method": r.yontem,
+                "Solve time (s)": round(r.cozum_suresi_sn, 1),
+            })
+        sweep_df = pd.DataFrame(_rows)
+        st.dataframe(sweep_df, width="stretch", hide_index=True)
+
+        # Bar chart: ρ vs (avg time, unreachable count) — iki y-axis
+        try:
+            import plotly.graph_objects as go
+            from plotly.subplots import make_subplots
+
+            densities = [run["density"] for run in _sweep["runs"]]
+            avg_times = [run["result"].ort_sure_dk for run in _sweep["runs"]]
+            max_times = [run["result"].max_sure_dk for run in _sweep["runs"]]
+            unreach = [run["result"].ulasilamaz_sayisi for run in _sweep["runs"]]
+
+            fig_d = make_subplots(specs=[[{"secondary_y": True}]])
+            fig_d.add_trace(
+                go.Bar(
+                    x=[f"{d:.1f}" for d in densities],
+                    y=avg_times,
+                    name="Avg travel time (min)",
+                    marker_color=TOKENS["accent"],
+                    hovertemplate="ρ=%{x}<br>Avg=%{y:.2f} min<extra></extra>",
+                ),
+                secondary_y=False,
+            )
+            fig_d.add_trace(
+                go.Scatter(
+                    x=[f"{d:.1f}" for d in densities],
+                    y=max_times,
+                    name="Max travel time (min)",
+                    mode="lines+markers",
+                    line=dict(color=TOKENS["warning"], width=2),
+                    marker=dict(size=8),
+                    hovertemplate="ρ=%{x}<br>Max=%{y:.2f} min<extra></extra>",
+                ),
+                secondary_y=False,
+            )
+            fig_d.add_trace(
+                go.Scatter(
+                    x=[f"{d:.1f}" for d in densities],
+                    y=unreach,
+                    name="Unreachable buildings",
+                    mode="lines+markers",
+                    line=dict(color=TOKENS["danger"], width=2, dash="dash"),
+                    marker=dict(size=8, symbol="x"),
+                    hovertemplate="ρ=%{x}<br>%{y:,} buildings<extra></extra>",
+                ),
+                secondary_y=True,
+            )
+            fig_d.update_layout(
+                title="Travel-time KPIs and unreachable count vs density",
+                font=dict(family="Inter, sans-serif", color=TOKENS["text"]),
+                plot_bgcolor="white",
+                paper_bgcolor="white",
+                height=420,
+                margin=dict(l=20, r=20, t=50, b=40),
+                xaxis=dict(title="Density (m²/person)",
+                           linecolor="#E2E8F0"),
+                legend=dict(orientation="h", yanchor="bottom",
+                            y=1.02, xanchor="right", x=1),
+            )
+            fig_d.update_yaxes(
+                title_text="Travel time (min)",
+                gridcolor="#F1F5F9", linecolor="#E2E8F0",
+                secondary_y=False,
+            )
+            fig_d.update_yaxes(
+                title_text="Unreachable buildings",
+                linecolor="#E2E8F0",
+                secondary_y=True,
+            )
+            st.plotly_chart(fig_d, width="stretch")
+            st.caption(
+                "💡 As density (ρ) increases, per-area capacity shrinks → "
+                "more buildings become unreachable + travel times rise. "
+                "Export chart via the camera icon for the report."
+            )
+        except ImportError:
+            pass
+
+        st.markdown("---")
+
     # KPI row — building-count metrics (mode-aware label'lar).
     # "Travel time" terimi hem walking hem driving senaryosunda nötr.
     k1, k2, k3, k4, k5 = st.columns(5, gap="small")
