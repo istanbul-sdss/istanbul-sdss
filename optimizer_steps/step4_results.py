@@ -344,13 +344,139 @@ def render_step4_results(domain: DomainConfig) -> None:
             ).set_index("Threshold")
         )
 
+    # atamalar_en'i erken hazırlıyoruz — hem histogram/CDF chart'ları hem de
+    # aşağıdaki Building assignments bölümü kullanacak. EN translation cache'li
+    # olduğu için iki kez çağırmak masraflı değil ama kod okunabilirliği için
+    # tek noktada üretmek daha temiz.
+    atamalar_en = to_english(result.atamalar)
+
+    # ── F3 + F4: Walking-time distribution + Population coverage CDF ──────
+    # Sprint 3 (academic visualization push): tek bir KPI üçlüsü yerine
+    # erişim kalitesinin TÜM dağılımını gösteren histogram + kümülatif
+    # eğri. Tez raporu Figure 5.2 + 5.3 olarak kullanılır.
+    if "Time (min)" in atamalar_en.columns and len(atamalar_en) > 0:
+        try:
+            import numpy as _np
+            import plotly.graph_objects as go
+
+            _times = atamalar_en["Time (min)"].dropna().astype(float).values
+            _weights = (
+                atamalar_en["Weight"].dropna().astype(float).values
+                if "Weight" in atamalar_en.columns
+                else _np.ones_like(_times)
+            )
+
+            if len(_times) > 0:
+                cards.section_title(
+                    "Travel-time distribution",
+                    "Histogram of building travel times (left) and the "
+                    "cumulative population coverage curve (right). The shaded "
+                    "thresholds at 5 / 10 / 30 min mark AFAD reference bands.",
+                )
+                cc1, cc2 = st.columns(2, gap="medium")
+
+                # F3 — Walking time histogram (buildings + population overlay)
+                with cc1:
+                    fig_hist = go.Figure()
+                    # Bina sayısı (count) histogramı
+                    fig_hist.add_trace(go.Histogram(
+                        x=_times,
+                        xbins=dict(start=0, end=max(60, float(_np.max(_times)) + 5), size=2.5),
+                        marker_color=TOKENS["accent"],
+                        opacity=0.75,
+                        name="Buildings",
+                        hovertemplate="Bin: %{x} min<br>%{y} buildings<extra></extra>",
+                    ))
+                    # AFAD eşik çizgileri (5/10/30 dk)
+                    for thr, label, color in [
+                        (5,  "5 min",  TOKENS["success"]),
+                        (10, "10 min", TOKENS["warning"]),
+                        (30, "30 min", TOKENS["danger"]),
+                    ]:
+                        fig_hist.add_vline(
+                            x=thr, line_dash="dot", line_color=color,
+                            annotation_text=label,
+                            annotation_position="top",
+                        )
+                    fig_hist.update_layout(
+                        title="Building count by travel-time bin",
+                        font=dict(family="Inter, sans-serif", color=TOKENS["text"]),
+                        plot_bgcolor="white",
+                        paper_bgcolor="white",
+                        height=380,
+                        margin=dict(l=20, r=20, t=50, b=40),
+                        xaxis=dict(title="Travel time (min)",
+                                   gridcolor="#F1F5F9", linecolor="#E2E8F0"),
+                        yaxis=dict(title="Number of buildings",
+                                   gridcolor="#F1F5F9", linecolor="#E2E8F0"),
+                        showlegend=False,
+                    )
+                    st.plotly_chart(fig_hist, width="stretch")
+
+                # F4 — Population coverage CDF
+                with cc2:
+                    # Ağırlıklı CDF: sürelere göre sırala, ağırlıkları kümülatif
+                    # topla, toplam ağırlıkla normalize et → 0-100%
+                    order = _np.argsort(_times)
+                    t_sorted = _times[order]
+                    w_sorted = _weights[order]
+                    tot_w = float(w_sorted.sum())
+                    cum_pct = (
+                        _np.cumsum(w_sorted) / tot_w * 100.0
+                        if tot_w > 0 else _np.zeros_like(w_sorted)
+                    )
+
+                    fig_cdf = go.Figure()
+                    fig_cdf.add_trace(go.Scatter(
+                        x=t_sorted, y=cum_pct,
+                        mode="lines",
+                        line=dict(color=TOKENS["accent"], width=2.5),
+                        fill="tozeroy",
+                        fillcolor="rgba(37, 99, 235, 0.10)",
+                        name="Cumulative pop. coverage",
+                        hovertemplate="≤ %{x:.1f} min<br>%{y:.1f}% population<extra></extra>",
+                    ))
+                    for thr, label, color in [
+                        (5,  "5 min",  TOKENS["success"]),
+                        (10, "10 min", TOKENS["warning"]),
+                        (30, "30 min", TOKENS["danger"]),
+                    ]:
+                        fig_cdf.add_vline(
+                            x=thr, line_dash="dot", line_color=color,
+                            annotation_text=label,
+                            annotation_position="top",
+                        )
+                    fig_cdf.update_layout(
+                        title="Cumulative population coverage (%)",
+                        font=dict(family="Inter, sans-serif", color=TOKENS["text"]),
+                        plot_bgcolor="white",
+                        paper_bgcolor="white",
+                        height=380,
+                        margin=dict(l=20, r=20, t=50, b=40),
+                        xaxis=dict(title="Travel time (min)",
+                                   gridcolor="#F1F5F9", linecolor="#E2E8F0"),
+                        yaxis=dict(title="Population covered (%)",
+                                   range=[0, 105],
+                                   gridcolor="#F1F5F9", linecolor="#E2E8F0"),
+                        showlegend=False,
+                    )
+                    st.plotly_chart(fig_cdf, width="stretch")
+
+                st.caption(
+                    "💡 Tip: Use the camera icon in the chart toolbar to export "
+                    "each plot as PNG for inclusion in your report."
+                )
+        except ImportError:
+            # Plotly yoksa sessiz geç — coverage bar chart zaten yukarıda gösterilmişti
+            pass
+
     # ── Area-level summary ──────────────────────────────────────────────────
     cards.section_title("Area-level summary")
     alan_en = to_english(result.alan_ozeti)
     st.dataframe(alan_en, width="stretch", hide_index=True, height=360)
 
     # ── Building assignment explorer ────────────────────────────────────────
-    atamalar_en = to_english(result.atamalar)
+    # atamalar_en yukarıda zaten oluşturuldu (yeniden çağırmaya gerek yok).
     cards.section_title(
         "Building assignments",
         "Each row states exactly which assembly area a building is assigned to.",
