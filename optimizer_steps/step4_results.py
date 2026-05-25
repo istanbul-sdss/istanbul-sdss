@@ -359,6 +359,69 @@ def render_step4_results(domain: DomainConfig) -> None:
 
         st.markdown("---")
 
+    # ── F8: ILP engine benchmark display ────────────────────────────────
+    _bench = st.session_state.get("opt_engine_benchmark")
+    if _bench is not None and _bench.get("runs"):
+        st.markdown("---")
+        st.markdown(
+            f"### ⏱ ILP engine benchmark\n"
+            f"_Same problem (p={_bench['p']}, objective={_bench['amac']}, "
+            f"capacity={'ON' if _bench['capacity'] else 'OFF'}) solved with "
+            f"**{len(_bench['runs'])} engines**._"
+        )
+        # Tablo
+        _bench_rows = []
+        for run in _bench["runs"]:
+            r = run["result"]
+            _bench_rows.append({
+                "Engine": run["engine"].upper(),
+                "Solve time (s)": round(r.cozum_suresi_sn, 3),
+                "Method": r.yontem,
+                "ILP status": r.ilp_status or "—",
+                "Objective": round(r.toplam_agirlikli_sure, 2),
+                "Avg time (min)": round(r.ort_sure_dk, 2),
+                "Max time (min)": round(r.max_sure_dk, 2),
+                "Engine reported": (r.ilp_engine_used or "—").upper(),
+            })
+        bench_df = pd.DataFrame(_bench_rows)
+        st.dataframe(bench_df, width="stretch", hide_index=True)
+
+        # Bar chart — runtime karşılaştırması
+        try:
+            import plotly.graph_objects as go
+            engines = [run["engine"].upper() for run in _bench["runs"]]
+            times = [run["result"].cozum_suresi_sn for run in _bench["runs"]]
+            fig_b = go.Figure()
+            fig_b.add_trace(go.Bar(
+                x=engines, y=times,
+                marker_color=TOKENS["accent"],
+                text=[f"{t:.3f}s" for t in times],
+                textposition="outside",
+                hovertemplate="%{x}<br>%{y:.3f}s<extra></extra>",
+            ))
+            fig_b.update_layout(
+                title="Solve time by ILP engine",
+                font=dict(family="Inter, sans-serif", color=TOKENS["text"]),
+                plot_bgcolor="white",
+                paper_bgcolor="white",
+                height=320,
+                margin=dict(l=20, r=20, t=50, b=40),
+                xaxis=dict(title="ILP engine", linecolor="#E2E8F0"),
+                yaxis=dict(title="Solve time (s)",
+                           gridcolor="#F1F5F9", linecolor="#E2E8F0"),
+                showlegend=False,
+            )
+            st.plotly_chart(fig_b, width="stretch")
+        except ImportError:
+            pass
+
+        st.caption(
+            "💡 All engines should report the same objective value (proves "
+            "correctness across implementations); runtime differences are the "
+            "headline. Camera icon exports to PNG for the report."
+        )
+        st.markdown("---")
+
     # KPI row — building-count metrics (mode-aware label'lar).
     # "Travel time" terimi hem walking hem driving senaryosunda nötr.
     k1, k2, k3, k4, k5 = st.columns(5, gap="small")

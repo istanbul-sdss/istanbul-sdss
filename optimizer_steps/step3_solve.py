@@ -801,4 +801,97 @@ def render_step3_solve(domain: DomainConfig) -> None:
                     st.error(f"Density sweep failed: {e}")
                     log.exception("Density sweep error")
 
+        # ── Benchmark: ILP engine runtime comparison (F8) ───────────────────
+        # Visualization sprint: kurulu tüm ILP solver'ları aynı problemde
+        # çalıştır, runtime karşılaştırması yap. Sonuç: tez raporu
+        # Methodology / Computational Results bölümünde tablo olarak
+        # kullanılabilir ("CBC X ms, HiGHS Y ms, CPLEX Z ms").
+        with st.expander("⏱ Benchmark ILP engines (advanced)"):
+            _avail = list_available_ilp_engines()
+            _avail_keys = [k for k, _ in _avail]
+            if len(_avail_keys) <= 1:
+                st.info(
+                    "Only one ILP engine detected on this machine "
+                    f"({_avail_keys[0].upper() if _avail_keys else 'none'}). "
+                    "Install HiGHS (`pip install highspy`), Gurobi, CPLEX, or "
+                    "SCIP to enable side-by-side benchmarking."
+                )
+            else:
+                st.markdown(
+                    f"Run the same problem (p={p}, objective={amac}, "
+                    f"{'capacity ON' if capacity else 'capacity OFF'}) with "
+                    f"**all {len(_avail_keys)} installed ILP engines** and "
+                    f"compare runtime + objective value. Useful for the "
+                    f"thesis Solution Method section."
+                )
+                if st.button(
+                    f"🏁 Benchmark {len(_avail_keys)} engines",
+                    key="opt_btn_engine_bench",
+                    disabled=invalid_combo,
+                    width="stretch",
+                ):
+                    st.session_state.opt_logs = []
+                    bench_progress = st.progress(0.0)
+                    bench_status = st.empty()
+                    bench_results: list = []
+                    try:
+                        # Capacity reuse: aynı density ile kapasite ON ise GDF
+                        # bir kez hazırlanır.
+                        a_bench = st.session_state.opt_assembly
+                        if capacity and "area_m2" in a_bench.columns:
+                            from src.optimizer.population_estimator import (
+                                estimate_capacity_afad,
+                            )
+                            a_bench = a_bench.copy()
+                            a_bench["kapasite"] = estimate_capacity_afad(
+                                a_bench["area_m2"],
+                                m2_per_person=float(m2_per_person),
+                            )
+                        for i_e, eng_key in enumerate(_avail_keys):
+                            bench_status.info(
+                                f"Solving with **{eng_key.upper()}** "
+                                f"({i_e + 1}/{len(_avail_keys)})…"
+                            )
+                            r_eng = coz(
+                                st.session_state.opt_od_matrix,
+                                st.session_state.opt_buildings,
+                                a_bench,
+                                p=int(p),
+                                kapasite=capacity,
+                                max_sure_dk=None,
+                                amac=amac,
+                                progress_cb=log_cb,
+                                solver="ilp",   # ZORLA ILP — benchmark ILP'ler için
+                                time_limit_sn=effective_time_limit,
+                                unlimited=ilp_unlimited,
+                                allow_fallback=False,   # düşmesin, gerçek timing alalım
+                                n_restarts=1,           # ILP için multi-start anlamsız
+                                random_state=None,
+                                ilp_engine=eng_key,
+                            )
+                            bench_results.append({
+                                "engine": eng_key,
+                                "result": r_eng,
+                            })
+                            bench_progress.progress((i_e + 1) / len(_avail_keys))
+                        bench_status.success(
+                            f"✅ Engine benchmark complete ({len(_avail_keys)} runs). "
+                            f"See **Step 4 → Engine benchmark** for the table."
+                        )
+                        st.session_state["opt_engine_benchmark"] = {
+                            "p": int(p),
+                            "amac": amac,
+                            "capacity": bool(capacity),
+                            "runs": bench_results,
+                        }
+                        st.rerun()
+                    except Exception as e:
+                        bench_progress.empty()
+                        bench_status.empty()
+                        st.error(
+                            f"Benchmark failed (check that all engines accept "
+                            f"this problem; fallback was disabled): {e}"
+                        )
+                        log.exception("Engine benchmark error")
+
 
