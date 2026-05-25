@@ -99,6 +99,46 @@ def render_atama_haritasi(
             ),
         ).add_to(m)
 
+    # ── Catchment polygons (Voronoi-style) ──────────────────────────────
+    # Her açık alan için ona atanan binaların CONVEX HULL'unu çiz; alan
+    # rengiyle hafif transparent doldur. Voronoi'ye benzer "service region"
+    # görselleştirmesi — tez Figure 5.6 için kullanılır.
+    try:
+        from shapely.geometry import MultiPoint
+        catchment_grubu = folium.FeatureGroup(
+            name="🎯 Service catchments (convex hull)", show=False,
+        )
+        for j_acik in acik:
+            mask = sonuc.atamalar["alan_idx"] == j_acik
+            assigned_idx = sonuc.atamalar.loc[mask, "bina_idx"].astype(int).tolist()
+            # ≥3 bina lazım convex hull için (aksi halde line/point döner)
+            valid_pts = [
+                b_gdf.geometry.iloc[bi]
+                for bi in assigned_idx
+                if 0 <= bi < len(b_gdf)
+            ]
+            if len(valid_pts) < 3:
+                continue
+            hull = MultiPoint(valid_pts).convex_hull
+            if hull.geom_type != "Polygon":
+                continue
+            renk = renk_map.get(j_acik, "#888")
+            folium.GeoJson(
+                hull.__geo_interface__,
+                style_function=lambda _x, _c=renk: {
+                    "fillColor":   _safe_color(_c),
+                    "color":       _safe_color(_c),
+                    "weight":      1.5,
+                    "fillOpacity": 0.12,
+                    "dashArray":   "5 3",
+                },
+                tooltip=f"Catchment area for {j_acik}",
+            ).add_to(catchment_grubu)
+        catchment_grubu.add_to(m)
+    except Exception:
+        # shapely yoksa veya hull hesabı patlarsa sessiz geç — kritik değil
+        pass
+
     # ── Atama çizgileri ───────────────────────────────────────────────────────
     if cizgiler:
         cizgi_grubu = folium.FeatureGroup(name="Atama Çizgileri", show=False)
