@@ -170,22 +170,32 @@ def render_step3_solve(domain: DomainConfig) -> None:
         m2_per_person = 1.5  # disabled iken bile downstream'e şeffaf sabit gönder
         if area_available:
             from src.config.settings import AFAD_M2_PER_PERSON as _AFAD_DEFAULT
+            # Aralık 0.1 - 1000 m²/kişi. AFAD pratiği 1.5 ama hocaların
+            # tartıştığı 2.5, fairness-yoğun emergency 1.0, lüks (m²/villa)
+            # 100+ gibi senaryolar için tek üst sınır koymuyoruz. Step=0.1
+            # küçük ayar için yeterli; büyük değerleri kullanıcı doğrudan
+            # input'a yazabilir.
             m2_per_person = st.number_input(
                 domain.capacity_method_label,
-                min_value=0.5,
-                max_value=5.0,
+                min_value=0.1,
+                max_value=1000.0,
                 value=float(_AFAD_DEFAULT),
                 step=0.1,
                 key="opt_m2_per_person",
                 help=(
                     f"{domain.capacity_method_help_short}\n\n"
                     + (
+                        "**Common reference values (AFAD context):**\n"
                         "• **1.0** — high-density emergency (short-term, max coverage)\n"
                         "• **1.5** — AFAD assembly standard (default)\n"
-                        "• **2.5** — AFAD long-term shelter standard (more comfort)\n\n"
+                        "• **2.5** — AFAD long-term shelter standard (more comfort)\n"
+                        "• **5–10** — open-park spacing with tents / mid-term shelter\n"
+                        "• **>10** — research / sensitivity / hypothetical scenarios\n\n"
                         if domain.show_afad_methodology
-                        else "Default 1.5 is the AFAD value; tune to your domain.\n\n"
+                        else "Default 1.5 is the AFAD value; tune to your domain "
+                             "(students/classroom, beds/m², etc.).\n\n"
                     )
+                    + "Any positive value is accepted (0.1 ≤ density ≤ 1000). "
                     + "Only used when Capacity constraint is ON."
                 ),
                 disabled=(not capacity),
