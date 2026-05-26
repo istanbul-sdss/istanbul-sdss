@@ -1348,6 +1348,8 @@ def duyarlilik_analizi(
     unlimited: bool = False,
     allow_fallback: bool = True,
     ilp_engine: str = "cbc",
+    n_restarts: int = 1,
+    random_state: int | None = None,
     iter_cb: Callable[[int, int, int], None] | None = None,
 ) -> pd.DataFrame:
     """
@@ -1384,6 +1386,8 @@ def duyarlilik_analizi(
             unlimited=unlimited,
             allow_fallback=allow_fallback,
             ilp_engine=ilp_engine,
+            n_restarts=n_restarts,
+            random_state=random_state,
         )
         satirlar.append({
             "p":                       p,

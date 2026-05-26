@@ -170,14 +170,14 @@ def render_step3_solve(domain: DomainConfig) -> None:
         m2_per_person = 1.5  # disabled iken bile downstream'e şeffaf sabit gönder
         if area_available:
             from src.config.settings import AFAD_M2_PER_PERSON as _AFAD_DEFAULT
-            # Aralık 0.1 - 1000 m²/kişi. AFAD pratiği 1.5 ama hocaların
-            # tartıştığı 2.5, fairness-yoğun emergency 1.0, lüks (m²/villa)
-            # 100+ gibi senaryolar için tek üst sınır koymuyoruz. Step=0.1
-            # küçük ayar için yeterli; büyük değerleri kullanıcı doğrudan
-            # input'a yazabilir.
+            # Aralık 0.5 - 1000 m²/kişi (Sprint 1.5 audit 4.6: alt sınır
+            # 0.1'den 0.5'e çıkarıldı çünkü insan eni × derinlik ~ 0.4 m²
+            # ve 0.1 fiziksel olarak imkânsız). AFAD pratiği 1.5; alternatif
+            # 1.0 acil, 2.5 uzun barınma; geniş park / araştırma senaryosu
+            # için üst sınır 1000 bırakılıyor.
             m2_per_person = st.number_input(
                 domain.capacity_method_label,
-                min_value=0.1,
+                min_value=0.5,
                 max_value=1000.0,
                 value=float(_AFAD_DEFAULT),
                 step=0.1,
@@ -225,8 +225,14 @@ def render_step3_solve(domain: DomainConfig) -> None:
         # expander bu satırdan sonra render oluyor.
         _live_density = float(m2_per_person) if capacity else None
         _live_n_restarts = int(st.session_state.get("opt_kmed_n_restarts", 1))
+        # Sprint 1.5 audit 4.10: seed sadece n_restarts > 1 AND seed_enabled
+        # iken anlamlı. Disabled durumda eski 42 değeri stale signature diff'i
+        # tetiklemesin — çift kontrol.
         _live_seed: int | None = None
-        if st.session_state.get("opt_kmed_seed_enabled", False):
+        if (
+            _live_n_restarts > 1
+            and st.session_state.get("opt_kmed_seed_enabled", False)
+        ):
             _live_seed = int(st.session_state.get("opt_kmed_seed_value", 42))
         st.session_state["opt_current_inputs"] = ResultSignature(
             p=int(p),

@@ -169,6 +169,62 @@ def test_duyarlilik_analizi_accepts_ilp_engine():
     assert "Yöntem" in df.columns
 
 
+def test_duyarlilik_analizi_accepts_multistart_kwargs():
+    """
+    Sprint 1.5 audit BUG-A regresyonu: duyarlilik_analizi imzasına
+    n_restarts ve random_state Sprint 2 #14'te eklenmemişti. UI Step 3
+    sensitivity panel bunları geçince TypeError sessizce yutuluyordu.
+    """
+    import geopandas as gpd
+    import numpy as np
+    from shapely.geometry import Point
+
+    from src.optimizer.p_median import duyarlilik_analizi
+
+    rng = np.random.RandomState(0)
+    n_bina, n_alan = 6, 4
+    binalar = gpd.GeoDataFrame({
+        "weight":       [10.0] * n_bina,
+        "mahalle":      ["A"] * n_bina,
+        "alan_m2":      [100.0] * n_bina,
+        "levels":       [3] * n_bina,
+        "bina_etiketi": [f"B{i}" for i in range(n_bina)],
+        "geometry":     [Point(29.0 + i * 0.001, 41.0) for i in range(n_bina)],
+    }, crs="EPSG:4326")
+    alanlar = gpd.GeoDataFrame({
+        "ad":       [f"A{j}" for j in range(n_alan)],
+        "kapasite": [200.0] * n_alan,
+        "geometry": [Point(29.001 + j * 0.002, 41.001) for j in range(n_alan)],
+    }, crs="EPSG:4326")
+    od = rng.uniform(2.0, 15.0, size=(n_bina, n_alan)).astype(np.float32)
+
+    # K-Med + multi-start kombinasyonu UI'dan tetiklenen tipik akış
+    df = duyarlilik_analizi(
+        od, binalar, alanlar,
+        p_aralik=range(1, 3),
+        solver="kmedoids",
+        n_restarts=3,
+        random_state=42,
+    )
+    assert len(df) == 2, "İki p değeri için iki satır beklenir"
+    assert "Yöntem" in df.columns
+
+    # Aynı seed → aynı sonuç (reprodüksiyon)
+    df2 = duyarlilik_analizi(
+        od, binalar, alanlar,
+        p_aralik=range(1, 3),
+        solver="kmedoids",
+        n_restarts=3,
+        random_state=42,
+    )
+    # Sayısal sütunlar identik olmalı
+    for col in ("Ort. Süre (dk)", "Max Süre (dk)"):
+        if col in df.columns and col in df2.columns:
+            assert list(df[col]) == list(df2[col]), (
+                f"Aynı seed ile sensitivity sonucu identik olmalı (col={col})"
+            )
+
+
 def test_kmedoids_path_leaves_engine_used_as_none():
     """K-Med yolundan dönen result ilp_engine_used=None olmalı."""
     import geopandas as gpd

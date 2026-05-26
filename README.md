@@ -270,7 +270,7 @@ yerel/üretilmiş klasörleri DAHİL ETMEZ. Alıcı taraf ZIP'i açıp
   `style_workbook`); ~150 satır kopya kod elendi.
 - **Sabit konsolidasyonu:** `AFAD_M2_PER_PERSON`, `DEFAULT_AREA_FALLBACK_M2`
   artık yalnızca `src/config/settings.py`'da; modüller alias ile import eder.
-- **Test kapsamı:** 207 → 220 → 294 → **476** test (Faz B'de sürekli
+- **Test kapsamı:** 207 → 220 → 294 → 476 → **506+** test (Faz B'de sürekli
   büyüyen regresyon paketi: convergence şeffaflığı, sentinel davranışı,
   mode-aware OD, building label dedup, domain config, ILP engine
   seçimi/fallback, sensitivity ilp_engine forwarding, vb.).

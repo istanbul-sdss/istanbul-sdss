@@ -124,6 +124,12 @@ _DEFAULTS = {
     "opt_graph_info":  None,    # dict from validate_graph
     "opt_pop_audit":   None,    # nüfus override audit DataFrame
     "opt_od_mode":     None,    # "street_network" | "haversine_fallback"
+    # Sprint 1.5 audit #4.9: önceki sürüm Reset session'da bu 3 key'i
+    # temizlemiyordu → yeni run'da hayalet karşılaştırma/sweep/benchmark
+    # gözüküyordu. Şimdi reset bunları da temizler.
+    "opt_compare_results":  None,   # capacity ON vs OFF compare results
+    "opt_density_sweep":    None,   # F5 density sensitivity sweep results
+    "opt_engine_benchmark": None,   # F8 ILP engine benchmark results
 }
 for k, v in _DEFAULTS.items():
     if k not in st.session_state:
