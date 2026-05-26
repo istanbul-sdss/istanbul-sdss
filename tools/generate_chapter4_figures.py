@@ -304,4 +304,6 @@ if __name__ == "__main__":
     figure_4_1(figures_dir / "figure_4_1_sdss_architecture.svg")
     figure_4_2(figures_dir / "figure_4_2_optimization_workflow.svg")
     print(f"\nAll figures written to {figures_dir}")
-    print("Word'e ekleme: Insert > Picture > yukarıdaki dosyaları seç.")
+    # Print in plain ASCII so Windows cp1254 console doesn't garble the
+    # message — Turkish "Word'e ekleme:" became "Word'e ekleme: yukar?daki..."
+    print("To use in Word: Insert > Picture > pick the files above.")
