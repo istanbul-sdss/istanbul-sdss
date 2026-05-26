@@ -24,6 +24,7 @@ import streamlit as st
 from components import cards
 from components.domain_config import DomainConfig
 from components.translations import to_english
+from optimizer_steps._common import _have  # noqa: E402,F401
 from src.config.settings import CACHE_DIR
 from src.logger import get_logger
 from src.optimizer.data_loader import (
@@ -40,10 +41,6 @@ from src.optimizer.templates import (
 )
 
 log = get_logger(__name__)
-
-
-def _have(key: str) -> bool:
-    return st.session_state.get(key) is not None
 
 
 def render_step1_data(domain: DomainConfig) -> None:

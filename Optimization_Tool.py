@@ -143,15 +143,9 @@ if "_session_id" not in st.session_state:
     st.session_state["_session_id"] = uuid.uuid4().hex[:8]
 
 
-def log_cb(msg: str) -> None:
-    """Progress callback: push to logger + session logs."""
-    log.info(msg)
-    st.session_state.opt_logs.append(msg)
-
-
-def _have(key: str) -> bool:
-    return st.session_state.get(key) is not None
-
+# Audit 4.1: shared helpers; eskiden bu modülde + 3 step modülünde tekrar
+# tekrar tanımlanmıştı (DRY ihlali).
+from optimizer_steps._common import _have, log_cb  # noqa: E402,F401
 
 # ════════════════════════════════════════════════════════════════════════════
 # CURRENT STEP (for stepper)
@@ -361,37 +355,40 @@ with st.sidebar.expander("💾 Cache & disk"):
         width="stretch",
         key="opt_btn_clear_cache",
     ):
-        removed_bytes = 0
-        removed_files = 0
-        targets: list[_Path] = []
-        if _target in ("Overpass JSON cache", "All reproducible caches"):
-            targets.extend(_CACHE_DIR_PATH.glob("*.json"))
-        if _target in ("Graph cache (OSMnx GraphML)", "All reproducible caches"):
-            if _GRAPHS_DIR.exists():
-                targets.extend(_GRAPHS_DIR.glob("*"))
-        if _target in ("Output (Excel/CSV exports)", "All reproducible caches"):
-            if _OUTPUT_DIR.exists():
-                targets.extend(_OUTPUT_DIR.rglob("*"))
-        for f in targets:
-            if f.is_file():
-                try:
-                    sz = f.stat().st_size
-                    f.unlink()
-                    removed_bytes += sz
-                    removed_files += 1
-                except OSError:
-                    pass
-        # Empty directories left behind in output/ → temizle
-        if _target in ("Output (Excel/CSV exports)", "All reproducible caches"):
-            if _OUTPUT_DIR.exists():
-                import contextlib as _ctx
-                for d in sorted(
-                    [p for p in _OUTPUT_DIR.rglob("*") if p.is_dir()],
-                    key=lambda p: -len(p.parts),  # derinden yüzeye
-                ):
-                    with _ctx.suppress(OSError):
-                        d.rmdir()
-        st.session_state["opt_confirm_clear_cache"] = False
+        # Audit 4.5: Büyük cache (~10 GB) silmek dakikalar sürebilir.
+        # Spinner olmadan UI dondu görünüyordu → kullanıcıya görünür ilerleme.
+        with st.spinner(f"Clearing {_target}…"):
+            removed_bytes = 0
+            removed_files = 0
+            targets: list[_Path] = []
+            if _target in ("Overpass JSON cache", "All reproducible caches"):
+                targets.extend(_CACHE_DIR_PATH.glob("*.json"))
+            if _target in ("Graph cache (OSMnx GraphML)", "All reproducible caches"):
+                if _GRAPHS_DIR.exists():
+                    targets.extend(_GRAPHS_DIR.glob("*"))
+            if _target in ("Output (Excel/CSV exports)", "All reproducible caches"):
+                if _OUTPUT_DIR.exists():
+                    targets.extend(_OUTPUT_DIR.rglob("*"))
+            for f in targets:
+                if f.is_file():
+                    try:
+                        sz = f.stat().st_size
+                        f.unlink()
+                        removed_bytes += sz
+                        removed_files += 1
+                    except OSError:
+                        pass
+            # Empty directories left behind in output/ → temizle
+            if _target in ("Output (Excel/CSV exports)", "All reproducible caches"):
+                if _OUTPUT_DIR.exists():
+                    import contextlib as _ctx
+                    for d in sorted(
+                        [p for p in _OUTPUT_DIR.rglob("*") if p.is_dir()],
+                        key=lambda p: -len(p.parts),  # derinden yüzeye
+                    ):
+                        with _ctx.suppress(OSError):
+                            d.rmdir()
+            st.session_state["opt_confirm_clear_cache"] = False
         st.success(
             f"Removed {removed_files} files ({_fmt_size(removed_bytes)})."
         )

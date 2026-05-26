@@ -24,6 +24,7 @@ from components.domain_config import DomainConfig
 from components.signatures import ResultSignature
 from components.styles import TOKENS
 from components.translations import to_english
+from optimizer_steps._common import _have, log_cb  # noqa: E402,F401
 from src.logger import get_logger
 from src.optimizer.p_median import (
     ILP_THRESHOLD,
@@ -33,18 +34,6 @@ from src.optimizer.p_median import (
 )
 
 log = get_logger(__name__)
-
-
-def _have(key: str) -> bool:
-    return st.session_state.get(key) is not None
-
-
-def log_cb(msg: str) -> None:
-    """Progress callback: log + UI session log paneli."""
-    log.info(msg)
-    if "opt_logs" not in st.session_state:
-        st.session_state["opt_logs"] = []
-    st.session_state.opt_logs.append(msg)
 
 
 def render_step3_solve(domain: DomainConfig) -> None:
@@ -290,11 +279,9 @@ def render_step3_solve(domain: DomainConfig) -> None:
                 ),
                 disabled=(solver_mode == "kmedoids") or ilp_unlimited,
             )
-            # Sprint 2 #13: `unlimited` artık ayrı bir kwarg. UI'dan iki
-            # değer paslıyoruz: effective_time_limit (her zaman int>0) +
-            # ilp_unlimited (bool). coz() unlimited=True ise time_limit'i
-            # yoksayar. Backward-compat: 0 sentinel'i hâlâ desteklenir ama
-            # UI artık temiz API kullanıyor.
+            # Two separate kwargs to coz(): time_limit_sn (int seconds) +
+            # unlimited (bool). When unlimited=True the time limit is
+            # ignored; otherwise the slider value is honoured.
             effective_time_limit = int(time_limit_sn)
             allow_fallback = st.checkbox(
                 "Fall back to Heuristic if Exact fails",

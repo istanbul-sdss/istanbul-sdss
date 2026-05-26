@@ -20,6 +20,7 @@ import streamlit as st
 from components import cards
 from components.domain_config import DomainConfig
 from components.signatures import ODSignature, coerce_signature, signature_diff
+from optimizer_steps._common import _have, log_cb  # noqa: E402,F401
 from src.config.settings import ISTANBUL_ILCELER
 from src.logger import get_logger
 from src.optimizer.od_matrix import (
@@ -35,22 +36,9 @@ from src.optimizer.od_matrix import (
 log = get_logger(__name__)
 
 
-def _have(key: str) -> bool:
-    return st.session_state.get(key) is not None
-
-
 def _cached_graph(ilce: str, mode: str = MODE_WALK, force_download: bool = False):
     """get_graph wrapper'ı — Streamlit cache'i bu seviyede tutar."""
     return get_graph(ilce, mode=mode, force_download=force_download)
-
-
-def log_cb(msg: str) -> None:
-    """Progress callback: log + UI session log paneli. Step 2'nin OD compute
-    sırasında ilerleme mesajlarını çoğaltır."""
-    log.info(msg)
-    if "opt_logs" not in st.session_state:
-        st.session_state["opt_logs"] = []
-    st.session_state.opt_logs.append(msg)
 
 
 def render_step2_od(domain: DomainConfig) -> None:

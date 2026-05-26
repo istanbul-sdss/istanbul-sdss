@@ -86,7 +86,7 @@ def render_atama_haritasi(
         mah = mahalle_gdf.to_crs(WGS84)
         folium.GeoJson(
             mah.__geo_interface__,
-            name="Mahalleler",
+            name="Neighborhoods",
             style_function=lambda _: {
                 "fillColor":   "transparent",
                 "color":       "#666",
@@ -95,7 +95,7 @@ def render_atama_haritasi(
             },
             tooltip=folium.GeoJsonTooltip(
                 fields=["mahalle_adi"] if "mahalle_adi" in mah.columns else [],
-                aliases=["Mahalle:"],
+                aliases=["Neighborhood:"],
             ),
         ).add_to(m)
 
@@ -141,7 +141,7 @@ def render_atama_haritasi(
 
     # ── Atama çizgileri ───────────────────────────────────────────────────────
     if cizgiler:
-        cizgi_grubu = folium.FeatureGroup(name="Atama Çizgileri", show=False)
+        cizgi_grubu = folium.FeatureGroup(name="Assignment lines", show=False)
         atamalar = sonuc.atamalar
 
         # Çok fazla çizgi render'ı yavaşlatır
@@ -190,16 +190,17 @@ def render_atama_haritasi(
         atama_ozeti = row.get("atama_ozeti", f"{bina_etiketi} → {alan_adi}")
 
         # P2.1: tüm dış kaynaklı string'ler html.escape ile kaçırılır.
+        # Audit BUG-B: popup field label'ları EN'e taşındı (ana UI tamamen EN).
         popup_html = (
             f"<div style='font-family:Arial,sans-serif;min-width:190px'>"
             f"<div style='font-weight:700;font-size:14px;margin-bottom:6px'>{_esc(bina_etiketi)}</div>"
-            f"<div><b>Atama:</b> {_esc(atama_ozeti)}</div>"
-            f"<div><b>Toplanma alanı:</b> {_esc(alan_adi)}</div>"
-            f"<div><b>Yürüme süresi:</b> {sure:.1f} dk</div>"
-            f"<div><b>Süre aralığı:</b> {_esc(sure_araligi)}</div>"
-            f"<div><b>Erişim kalitesi:</b> {_esc(kalite)}</div>"
-            f"<div><b>Mahalle:</b> {_esc(row.get('mahalle', ''))}</div>"
-            f"<div><b>Ağırlık:</b> {float(agirlik):.0f}</div>"
+            f"<div><b>Assignment:</b> {_esc(atama_ozeti)}</div>"
+            f"<div><b>Assembly area:</b> {_esc(alan_adi)}</div>"
+            f"<div><b>Travel time:</b> {sure:.1f} min</div>"
+            f"<div><b>Time band:</b> {_esc(sure_araligi)}</div>"
+            f"<div><b>Access quality:</b> {_esc(kalite)}</div>"
+            f"<div><b>Neighborhood:</b> {_esc(row.get('mahalle', ''))}</div>"
+            f"<div><b>Weight:</b> {float(agirlik):.0f}</div>"
             f"</div>"
         )
 
@@ -212,11 +213,11 @@ def render_atama_haritasi(
             fill_opacity=0.65,
             weight=0.5,
             popup=folium.Popup(popup_html, max_width=280),
-            tooltip=f"{_esc(bina_etiketi)} → {_esc(alan_adi)} ({sure:.1f} dk)",
+            tooltip=f"{_esc(bina_etiketi)} → {_esc(alan_adi)} ({sure:.1f} min)",
         ).add_to(bina_gruplari.get(ji, m))
 
     # ── Toplanma alanı markerları ─────────────────────────────────────────────
-    toplanma_grubu = folium.FeatureGroup(name="⭐ Toplanma Alanları", show=True)
+    toplanma_grubu = folium.FeatureGroup(name="⭐ Assembly areas", show=True)
 
     for k, j in enumerate(acik):
         if j >= len(t_gdf):
@@ -235,14 +236,15 @@ def render_atama_haritasi(
         uzak_bina = int((alan_satir["sure_dk"] > 15).sum()) if n_bina > 0 else 0
 
         # P2.1: alan adı dış kaynaklı (kullanıcı upload / OSM) → escape.
+        # Audit BUG-B: popup field label'ları EN'e taşındı.
         popup_html = (
             f"<div style='font-family:Arial,sans-serif;min-width:190px'>"
             f"<div style='font-weight:700;font-size:14px;margin-bottom:6px'>⭐ {_esc(ad)}</div>"
-            f"<div><b>Atanan bina:</b> {n_bina:,}</div>"
-            f"<div><b>Toplam ağırlık:</b> {float(toplam_agirlik):,.0f}</div>"
-            f"<div><b>Ort. süre:</b> {ort_sure:.1f} dk</div>"
-            f"<div><b>Max süre:</b> {max_sure:.1f} dk</div>"
-            f"<div><b>15 dk üstü bina:</b> {uzak_bina:,}</div>"
+            f"<div><b>Assigned buildings:</b> {n_bina:,}</div>"
+            f"<div><b>Total weight:</b> {float(toplam_agirlik):,.0f}</div>"
+            f"<div><b>Avg time:</b> {ort_sure:.1f} min</div>"
+            f"<div><b>Max time:</b> {max_sure:.1f} min</div>"
+            f"<div><b>Buildings &gt; 15 min:</b> {uzak_bina:,}</div>"
             f"</div>"
         )
 
@@ -261,7 +263,7 @@ def render_atama_haritasi(
     toplanma_grubu.add_to(m)
 
     # Tüm toplanma alanları (açık olmayan dahil) — gri
-    kapali_grubu = folium.FeatureGroup(name="○ Kapalı Alanlar", show=False)
+    kapali_grubu = folium.FeatureGroup(name="○ Closed areas", show=False)
     kapali_idxler = [j for j in range(len(t_gdf)) if j not in acik]
     for j in kapali_idxler:
         pt = t_gdf.geometry.iloc[j]
