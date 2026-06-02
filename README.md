@@ -309,5 +309,15 @@ Son bir tur sertleştirme + güvenlik ağı yatırımı:
 
 ## Lisans
 
-Geliştirme aşamasındaki proje. Kullanılan veri kaynaklarının lisanslarına
-(ODbL, vb.) uyulması gerekir.
+**Kod: Apache License 2.0.** Bu projenin kaynak kodu Apache-2.0 altında
+lisanslanmıştır (bkz. `LICENSE`). Serbestçe kullanılabilir, değiştirilebilir
+ve dağıtılabilir; tek koşul telif/lisans bildirimlerinin korunması ve
+değiştirilen dosyaların işaretlenmesidir. Apache-2.0 ayrıca katkıda
+bulunanlardan açık bir patent lisansı içerir.
+
+**Veri: kendi lisansları geçerli (Apache-2.0 kapsamı DIŞINDA).**
+`data/mahalleleri/*.geojson` ve uygulamanın Overpass üzerinden çektiği tüm
+OpenStreetMap verisi **© OpenStreetMap katkıcıları, ODbL v1.0** altındadır.
+Bu veriden türetilen veritabanlarının dağıtımı koddan bağımsız olarak ODbL'e
+uymak zorundadır. Ayrıntılar ve üçüncü-şahıs kütüphane atıfları için `NOTICE`
+dosyasına bakın.

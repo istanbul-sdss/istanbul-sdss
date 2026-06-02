@@ -1,0 +1,35 @@
+Istanbul Spatial Decision Support System
+Copyright 2026 Zeliha Karabay, Yusuf Kilic, Sevcan Gorgulu
+
+This product is licensed under the Apache License, Version 2.0
+(see the LICENSE file). The Apache-2.0 license applies to the SOURCE
+CODE of this project only.
+
+------------------------------------------------------------------------
+Data attribution (NOT covered by Apache-2.0)
+------------------------------------------------------------------------
+This project consumes and ships geographic data that is governed by its
+own, separate licenses:
+
+  * OpenStreetMap data (building footprints, points of interest, and the
+    neighbourhood / district boundary files under data/mahalleleri/)
+    (c) OpenStreetMap contributors, licensed under the Open Database
+    License (ODbL) v1.0 -- https://www.openstreetmap.org/copyright
+    Any redistribution or derivative database produced from this data
+    must comply with the ODbL, independently of the Apache-2.0 license
+    that governs the code.
+
+  * Population assumptions are derived from publicly reported figures of
+    the Turkish Statistical Institute (TUIK).
+
+  * Emergency assembly-area capacity standards reference guidelines of the
+    Disaster and Emergency Management Presidency (AFAD).
+
+------------------------------------------------------------------------
+Third-party software
+------------------------------------------------------------------------
+This product depends on open-source libraries distributed under their own
+licenses, including (non-exhaustive): Streamlit, GeoPandas, Shapely,
+PyProj, OSMnx, NetworkX, PuLP/CBC, pandas, NumPy, SciPy, scikit-learn,
+Folium, Plotly, RapidFuzz, and openpyxl. Each retains its respective
+copyright and license; see the corresponding distributions for details.
