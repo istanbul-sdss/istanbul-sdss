@@ -29,7 +29,8 @@ ENV/
 Thumbs.db
 
 # ── Claude Code ayarları ─────────────────────────────────────────────────
-.claude/settings.local.json
+# Tüm editör/oturum state'i repo dışı: lokal ayarlar + geçici worktree'ler.
+.claude/
 
 # ── Streamlit ─────────────────────────────────────────────────────────────
 # Yerel/deploy secrets (token, API key vb.) ASLA repo'ya girmemeli.
@@ -59,6 +60,27 @@ dist/
 # ── OS özel ───────────────────────────────────────────────────────────────
 *.log
 *.tmp
+
+# ── Tek seferlik veri-hazırlama / keşif scriptleri ve çıktıları ──────────
+# Beşiktaş toplanma alanları için elle yazılmış, hardcoded-path'li deneme
+# scriptleri ve ürettikleri ara/çıktı dosyaları. Projenin src/ mimarisinin
+# parçası DEĞİL; üretim akışına girmezler. Diskte kalırlar, repoya girmezler.
+fetch_buildings.py
+fetch_overpass.py
+match_osm.py
+process_areas.py
+build_final.py
+overpass_buildings.json
+overpass_polys.json
+toplanma_alanlari.json
+toplanma_alanlari.csv
+toplanma_alanlari.xlsx
+Toplanma_Alanlari_*.xlsx
+_areas_pass1.pkl
+# Name Lookup / extraction denemelerinden kalan ad-hoc Excel'ler (kök dizinde)
+/Beşiktaş*.xlsx
+# Dahili inceleme raporu (bulgular içerir — public repoda tutulmaz)
+PROJE_INCELEME_RAPORU.md
 
 # ── İSTİSNALAR (committedlanması gerekenler) ─────────────────────────────
 # data/samples/ — hocaya gösterim için pre-bundled örnek çıktılar
