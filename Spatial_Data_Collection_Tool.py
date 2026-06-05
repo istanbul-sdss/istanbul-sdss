@@ -67,7 +67,6 @@ st.sidebar.markdown(
     <div style="font-size:0.875rem;color:#CBD5E1;line-height:1.7">
       • <b>{len(ISTANBUL_ILCELER)}</b> Istanbul districts<br>
       • <b>{len(CATEGORY_REGISTRY)}</b> data categories<br>
-      • <b>{sum(len(c['subcategories']) for c in CATEGORY_REGISTRY.values())}</b> sub-categories<br>
       • Data source: OpenStreetMap
     </div>
     """,
@@ -129,8 +128,8 @@ with c1:
     cards.feature_card(
         icon="🎯",
         title="Targeted extraction",
-        text="Pick any of Istanbul's 39 districts and select from 9 data categories and "
-             "100+ sub-categories. Only fetch what you need.",
+        text="Pick any of Istanbul's 39 districts and select from 9 data categories. "
+             "Only fetch what you need.",
     )
 with c2:
     cards.feature_card(
