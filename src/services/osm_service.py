@@ -107,15 +107,71 @@ class OverpassNetworkError(RuntimeError):
     pass
 
 
+def _boundary_from_local_mahalleleri(ilce: str) -> gpd.GeoDataFrame | None:
+    """
+    İlçe sınırını YEREL mahalle GeoJSON'undan üretir (mahallelerin union'ı).
+
+    Neden: `ox.geocode_to_gdf` (Nominatim) paylaşımlı sunucularda (örn.
+    Streamlit Cloud) sık sık rate-limit/timeout yer ve pipeline daha
+    "boundary çekiliyor" adımında asılı kalır. 39 ilçenin mahalle sınırı
+    zaten repo'da (`data/mahalleleri/*.geojson`) bulunduğundan, ilçe sınırını
+    bunların birleşiminden offline ve anında üretebiliriz. Bu hem Cloud'da
+    Nominatim bağımlılığını kaldırır hem de reprodüksiyonu sağlamlaştırır.
+
+    Yerel dosya yoksa None döner → çağıran Nominatim'e fallback yapar.
+    """
+    try:
+        from src.services.neighbourhood_loader import load_mahalleleri
+    except Exception:
+        return None
+
+    try:
+        mah = load_mahalleleri(ilce)
+    except Exception as exc:
+        log.warning(f"Yerel mahalle yüklenemedi ({ilce}): {exc}")
+        return None
+
+    if mah is None or mah.empty:
+        return None
+
+    try:
+        mah = ensure_wgs84(mah)
+        union_geom = mah.geometry.union_all()  # tüm mahalleleri tek sınıra birleştir
+        boundary = gpd.GeoDataFrame(
+            {"name": [ilce]}, geometry=[union_geom], crs="EPSG:4326"
+        )
+        boundary = safe_buffer_zero(boundary)
+        if boundary.empty or boundary.geometry.iloc[0].is_empty:
+            return None
+        return boundary
+    except Exception as exc:
+        log.warning(f"Yerel sınır birleştirilemedi ({ilce}): {exc}")
+        return None
+
+
 def fetch_boundary(place_name: str) -> gpd.GeoDataFrame:
     log.debug(f"fetch_boundary başladı: {place_name}")
     start = time.time()
+
+    # ── 1. Yerel mahalle verisinden sınır (Nominatim'siz, offline) ───────────
+    # place_name biçimi: "Beşiktaş, İstanbul, Türkiye" → ilk segment ilçe adı.
+    ilce = place_name.split(",")[0].strip()
+    local = _boundary_from_local_mahalleleri(ilce)
+    if local is not None and not local.empty:
+        log.debug(
+            f"fetch_boundary (yerel mahalle union): ilce={ilce} "
+            f"süre={time.time()-start:.2f}s"
+        )
+        return local
+
+    # ── 2. Fallback: Nominatim geocoding (yerel veri yoksa) ──────────────────
+    log.debug(f"Yerel sınır yok, Nominatim'e düşülüyor: {place_name}")
     gdf = ox.geocode_to_gdf(place_name).copy()
     gdf = ensure_wgs84(gdf)
     gdf = safe_buffer_zero(gdf)
     if gdf.empty:
         raise ValueError(f"Sınır bulunamadı: {place_name}")
-    log.debug(f"fetch_boundary bitti: count={len(gdf)} süre={time.time()-start:.2f}s")
+    log.debug(f"fetch_boundary bitti (Nominatim): count={len(gdf)} süre={time.time()-start:.2f}s")
     return gdf
 
 
