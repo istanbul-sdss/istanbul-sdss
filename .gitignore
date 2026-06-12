@@ -81,6 +81,8 @@ _areas_pass1.pkl
 /Beşiktaş*.xlsx
 # Dahili inceleme raporu (bulgular içerir — public repoda tutulmaz)
 PROJE_INCELEME_RAPORU.md
+# Kişisel poster üreteci (repoya girmez)
+tools/generate_poster.py
 
 # ── İSTİSNALAR (committedlanması gerekenler) ─────────────────────────────
 # data/samples/ — hocaya gösterim için pre-bundled örnek çıktılar
