@@ -35,6 +35,7 @@ EXCLUDE_DIRS = {
     "venv", ".venv", "env", "ENV",
     "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache",
     ".git", ".github" if False else None,   # .github (CI) DAHİL — bilinçli
+    "node_modules",         # JS bağımlılıkları (docx/pptx araçları) — ~550 MB, dağıtıma girmez
     "cache",                # OSM cache — yeniden indirilebilir, çok büyük
     "output",               # kullanıcı çıktıları — gizli/spesifik olabilir
     "logs",                 # debug logları
@@ -42,6 +43,10 @@ EXCLUDE_DIRS = {
     "data/graphs",          # ilçe yürüme grafları (her biri 50-300 MB)
     "dist",                 # önceki release ZIP'leri
     ".claude",              # editör state'i (privé)
+    # Geçici analiz / inceleme çıktıları — kaynak kod değil
+    "results_review_20260614",
+    "report_review_work",
+    "english_report_assets",
 }
 # None varsa filtrele
 EXCLUDE_DIRS = {d for d in EXCLUDE_DIRS if d is not None}
@@ -51,11 +56,23 @@ EXCLUDE_FILE_SUFFIXES = (
     ".pyc", ".pyo", ".so", ".pyd",
     ".log", ".tmp", ".swp", ".swo",
     ".bak",                          # *.bak
+    ".docx", ".doc", ".asd",         # rapor/Word dosyaları — kod dağıtımına girmez
+    ".pkl",                          # ara-veri pickle'ları (deneme çıktıları)
 )
 
 EXCLUDE_FILE_NAMES = {
     ".DS_Store", "Thumbs.db",
     "secrets.toml",                  # .streamlit/secrets.toml
+    # Tek seferlik Beşiktaş veri-hazırlama deneme scriptleri (src/ mimarisine ait değil)
+    "build_final.py", "fetch_buildings.py", "fetch_overpass.py",
+    "match_osm.py", "process_areas.py", "inspect_chapter5.py",
+    # Dahili inceleme/rapor üretim araçları — dağıtım paketine girmez
+    "PROJE_INCELEME_RAPORU.md",
+    "generate_poster.py", "generate_final_report.py", "generate_ch5_ch6.py",
+    "generate_presentation.py", "generate_report_flowcharts.py",
+    "generate_chapter4_figures.py",
+    # Chapter 5 analiz JSON artıkları
+    "chapter5_a11y.json", "chapter5_comments.json", "chapter5_structure.json",
 }
 
 # *.geojson.bak.<ts> gibi neighborhood-sync yedekleri

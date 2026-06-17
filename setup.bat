@@ -7,21 +7,42 @@ echo  Istanbul SDSS - Windows Setup
 echo ================================================================
 echo.
 
-REM Python 3.10+ kontrolu - gercek surum karsilastirmasi
+REM Python yorumlayicisini bul: once "python", olmazsa "py" launcher.
+REM Windows'ta Python cogu zaman "py" ile gelir ama "python" PATH'te olmayabilir.
+REM Parantez bloklarinda errorlevel donabildigi icin duz akis + goto kullaniyoruz.
+set "PYCMD="
 python --version >nul 2>&1
-if errorlevel 1 (
-    echo [HATA] Python bulunamadi. Lutfen Python 3.10 veya ustu yukleyin:
-    echo        https://www.python.org/downloads/
+if not errorlevel 1 (set "PYCMD=python" & goto :pyfound)
+py -3 --version >nul 2>&1
+if not errorlevel 1 (set "PYCMD=py -3" & goto :pyfound)
+py --version >nul 2>&1
+if not errorlevel 1 (set "PYCMD=py" & goto :pyfound)
+
+if not defined PYCMD (
+    echo [HATA] Python bulunamadi.
+    echo.
+    echo  Python kurulu olabilir ama PATH'te olmayabilir. Lutfen kontrol edin:
+    echo     py --version
+    echo     python --version
+    echo.
+    echo  Python yuklu degilse 3.11 veya 3.12 yukleyin ^(3.13 ONERILMEZ^):
+    echo     https://www.python.org/downloads/
+    echo  Kurulumda "Add Python to PATH" secenegini MUTLAKA isaretleyin.
     pause
     exit /b 1
 )
 
+:pyfound
+
+echo  Python komutu: %PYCMD%
+
 REM Sys.version_info ile minimum 3.10 dogrula
-python -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
+%PYCMD% -c "import sys; sys.exit(0 if sys.version_info >= (3, 10) else 1)" >nul 2>&1
 if errorlevel 1 (
-    for /f "tokens=2" %%v in ('python --version 2^>^&1') do set "PYV=%%v"
+    for /f "tokens=2" %%v in ('%PYCMD% --version 2^>^&1') do set "PYV=%%v"
     echo [HATA] Python surumu yetersiz: %PYV%
-    echo        En az Python 3.10 gereklidir. Yeni surum: https://www.python.org/downloads/
+    echo        En az Python 3.10 gereklidir ^(3.11 veya 3.12 onerilir^).
+    echo        https://www.python.org/downloads/
     pause
     exit /b 1
 )
@@ -29,7 +50,7 @@ if errorlevel 1 (
 REM venv yoksa olustur
 if not exist "venv\" (
     echo [1/2] Sanal ortam olusturuluyor...
-    python -m venv venv
+    %PYCMD% -m venv venv
     if errorlevel 1 (
         echo [HATA] venv olusturulamadi.
         pause
