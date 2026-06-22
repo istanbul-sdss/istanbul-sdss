@@ -85,9 +85,9 @@ def render_step1_data(domain: DomainConfig) -> None:
                     width="stretch",
                     key="opt_dl_tuik_template",
                     help=(
-                        "For Uniform per-building mode: Excel with mahalle_adi + "
-                        "nufus columns. 5 example Kadıköy neighborhoods; update "
-                        "for your own district."
+                        "For Uniform per-building mode: Excel with "
+                        "neighbourhood_name + population columns. 5 example "
+                        "Kadıköy neighbourhoods; update for your own district."
                     ),
                 )
         # ─────────────────────────────────────────────────────────────────────

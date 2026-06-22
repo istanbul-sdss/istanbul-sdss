@@ -92,7 +92,7 @@ def _ensure_polygon_footprint_column(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
     # Mevcut alan kolonu var mı?
     existing = _pick_first_column(
-        gdf, ["Alan (m²)", "alan_m2", "footprint_m2", "area_m2"]
+        gdf, ["Alan (m²)", "Area (m²)", "alan_m2", "footprint_m2", "area_m2"]
     )
 
     # Hangi satırlar için polygon'dan hesap gerekiyor?
@@ -175,7 +175,7 @@ def _pick_first_column(df: pd.DataFrame, candidates: list[str]) -> str | None:
 
 def _extract_alan_m2(df: pd.DataFrame) -> pd.Series:
     """Bina alanını bul — Excel Türkçe veya GeoJSON İngilizce sütunu."""
-    col = _pick_first_column(df, ["Alan (m²)", "alan_m2", "footprint_m2", "area_m2"])
+    col = _pick_first_column(df, ["Alan (m²)", "Area (m²)", "alan_m2", "footprint_m2", "area_m2"])
     if col is None:
         log.warning("Alan sütunu bulunamadı — 0 m² atanıyor (nüfus tahmini düşük olur)")
         return pd.Series(0.0, index=df.index)
@@ -185,7 +185,7 @@ def _extract_alan_m2(df: pd.DataFrame) -> pd.Series:
 def _extract_levels(df: pd.DataFrame) -> pd.Series:
     """Kat sayısını bul — OSM building:levels, Kat Sayısı veya fallback."""
     col = _pick_first_column(
-        df, ["Kat Sayısı", "building:levels", "levels", "floors"]
+        df, ["Kat Sayısı", "Floors", "building:levels", "levels", "floors"]
     )
     if col is None:
         log.info(f"Kat sayısı sütunu yok — varsayılan {DEFAULT_LEVELS} kat kullanılıyor")
@@ -212,7 +212,7 @@ def _extract_osm_id(df: pd.DataFrame) -> pd.Series:
 
 
 def _extract_mahalle(df: pd.DataFrame) -> pd.Series:
-    col = _pick_first_column(df, ["Mahalle", "mahalle", "neighbourhood", "Neighborhood"])
+    col = _pick_first_column(df, ["Mahalle", "Neighbourhood", "mahalle", "neighbourhood", "Neighborhood"])
     if col is None:
         return pd.Series("Bilinmeyen", index=df.index, dtype=str)
     return df[col].fillna("Bilinmeyen").astype(str).str.strip().replace({"": "Bilinmeyen"})
@@ -530,7 +530,7 @@ def detect_population_method(gdf: gpd.GeoDataFrame) -> str:
     "Anlamlı dolu" eşiği: en az 1 satırda > 0 değer. Tüm satırlar 0/NaN
     ise footprint mevcut sayılmaz.
     """
-    col = _pick_first_column(gdf, ["Alan (m²)", "alan_m2", "footprint_m2", "area_m2"])
+    col = _pick_first_column(gdf, ["Alan (m²)", "Area (m²)", "alan_m2", "footprint_m2", "area_m2"])
     if col is None:
         return POP_METHOD_UNIFORM
     vals = pd.to_numeric(gdf[col], errors="coerce")
@@ -723,7 +723,7 @@ def _prepare_toplanma(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
 
     # footprint_m2: polygon GeoJSON yüklenirken _ensure_polygon_footprint_column
     # tarafından eklenir (P1.2). Bu yüzden listeye dahil ediyoruz.
-    alan_col = _pick_first_column(gdf, ["Alan (m²)", "alan_m2", "area_m2", "footprint_m2"])
+    alan_col = _pick_first_column(gdf, ["Alan (m²)", "Area (m²)", "alan_m2", "area_m2", "footprint_m2"])
     geom_filled = gdf.get("_geom_filled", pd.Series(False, index=gdf.index)).fillna(False).astype(bool)
     if alan_col:
         raw = pd.to_numeric(gdf[alan_col], errors="coerce")

@@ -37,7 +37,7 @@ def test_data_template_xlsx_buildings_has_required_columns():
     raw = build_data_template_xlsx()
     df = pd.read_excel(BytesIO(raw), sheet_name="Buildings")
 
-    must_have = {"Enlem", "Boylam", "Mahalle", "Alan (m²)", "Kat Sayısı"}
+    must_have = {"Latitude", "Longitude", "Neighbourhood", "Area (m²)", "Floors"}
     assert must_have.issubset(set(df.columns)), (
         f"Buildings sheet eksik kolon: {must_have - set(df.columns)}"
     )
@@ -49,7 +49,7 @@ def test_data_template_xlsx_assembly_has_required_columns():
     raw = build_data_template_xlsx()
     df = pd.read_excel(BytesIO(raw), sheet_name="Assembly")
 
-    must_have = {"Enlem", "Boylam", "Ad", "Alan (m²)"}
+    must_have = {"Latitude", "Longitude", "Name", "Area (m²)"}
     assert must_have.issubset(set(df.columns))
     assert len(df) == 1
 
@@ -61,8 +61,8 @@ def test_data_template_xlsx_example_coords_are_istanbul():
     bdf = pd.read_excel(BytesIO(raw), sheet_name="Buildings")
     adf = pd.read_excel(BytesIO(raw), sheet_name="Assembly")
     for df_name, df in [("Buildings", bdf), ("Assembly", adf)]:
-        lat = float(df["Enlem"].iloc[0])
-        lon = float(df["Boylam"].iloc[0])
+        lat = float(df["Latitude"].iloc[0])
+        lon = float(df["Longitude"].iloc[0])
         assert 40.55 <= lat <= 41.65, f"{df_name} örnek lat={lat} İstanbul dışı"
         assert 27.95 <= lon <= 30.10, f"{df_name} örnek lon={lon} İstanbul dışı"
 
@@ -98,19 +98,19 @@ def test_tuik_template_xlsx_has_required_sheets():
 def test_tuik_template_xlsx_columns_and_values():
     raw = build_tuik_template_xlsx()
     df = pd.read_excel(BytesIO(raw), sheet_name="TUIK_Population")
-    assert "mahalle_adi" in df.columns
-    assert "nufus" in df.columns
+    assert "neighbourhood_name" in df.columns
+    assert "population" in df.columns
     # En az 3 örnek satır var
     assert len(df) >= 3
     # Tüm nüfus değerleri pozitif tam sayı
-    assert (df["nufus"] > 0).all()
+    assert (df["population"] > 0).all()
 
 
 def test_tuik_template_xlsx_has_turkish_chars():
     """Şablon Türkçe karakter içermeli — utf-8 ile doğru yuvarlanır."""
     raw = build_tuik_template_xlsx()
     df = pd.read_excel(BytesIO(raw), sheet_name="TUIK_Population")
-    text = " ".join(df["mahalle_adi"].astype(str).tolist())
+    text = " ".join(df["neighbourhood_name"].astype(str).tolist())
     assert "ğ" in text or "ç" in text or "ö" in text, (
         f"Türkçe karakter beklenirdi: {text}"
     )
@@ -166,16 +166,16 @@ def test_data_template_loadable_with_uniform_when_combined_with_tuik(tmp_path):
         p_data, "Buildings", "Assembly",
         population_method=POP_METHOD_UNIFORM,
         mahalle_pop=tuik_df,
-        pop_name_col="mahalle_adi",
-        pop_value_col="nufus",
+        pop_name_col="neighbourhood_name",
+        pop_value_col="population",
     )
     # Şablonda Caferağa örneği var; TÜİK template'inde Caferağa nüfusu
     # mevcut → 1 bina için weight = TÜİK_nüfus / 1.
     assert len(b) == 1
     # Caferağa için TÜİK template değeri (templates.py'da tanımlı).
     expected = float(tuik_df.loc[
-        tuik_df["mahalle_adi"].str.contains("Caferağa", case=False, na=False),
-        "nufus",
+        tuik_df["neighbourhood_name"].str.contains("Caferağa", case=False, na=False),
+        "population",
     ].iloc[0])
     assert b["weight"].iloc[0] == expected
     assert b["nufus_kaynak"].iloc[0] == "uniform_per_building"
