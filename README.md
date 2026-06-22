@@ -1,47 +1,66 @@
 # Istanbul Spatial Decision Support System
 
-Streamlit + GeoPandas + OSMnx tabanlı, İstanbul ilçeleri için OSM verisi
-çeken, sınıflandıran ve AFAD toplanma alanı planlaması için **kapasite-farkında
-P-Median optimizasyonu** çalıştıran karar destek aracı.
+*🇬🇧 English · [🇹🇷 Türkçe](README.tr.md)*
 
-## Bileşenler
+A decision-support system built on **Streamlit + GeoPandas + OSMnx** that
+collects and classifies OpenStreetMap data for Istanbul districts and runs a
+**capacity-aware p-median optimization** to plan AFAD earthquake assembly areas.
+It ships as two complementary tools: a **Data Collection Tool** that turns a
+district into clean, mapped, quality-checked spatial data, and an
+**Optimization Tool** that places assembly areas optimally on top of that data.
 
-| Streamlit sayfası | Amaç |
+## Live demos
+
+Both tools are deployed on Streamlit Community Cloud, so you can try the full
+system in your browser without installing anything:
+
+- **Data Collection Tool** — <https://istanbul-sdss-data.streamlit.app/>
+- **Optimization Tool** — <https://istanbul-sdss-optimization.streamlit.app/>
+
+> The apps sleep after a period of inactivity; the first visit may take ~30
+> seconds to wake up. For a quick tour, start with the Data Collection Tool
+> (pick a district → extract → explore the map), then open the Optimization
+> Tool and load one of the bundled samples or your own data.
+
+## Components
+
+| Streamlit page | Purpose |
 |---|---|
-| `Spatial_Data_Collection_Tool.py` | Veri toplama uygulamasının ana sayfası |
-| `pages/1_Data_Extraction.py` | İlçe + kategori seçimi → OSM extraction → Excel/CSV/GeoJSON export |
-| `pages/2_Map_Visualization.py` | Sonuçların interaktif haritada gösterimi |
-| `pages/3_Analytics_Dashboard.py` | KPI, mahalle dağılımı, güven dağılımı |
-| `Optimization_Tool.py` | Deprem toplanma alanı atama + P-Median |
+| `Spatial_Data_Collection_Tool.py` | Home page of the data-collection app |
+| `pages/1_Data_Extraction.py` | District + category selection → OSM extraction → Excel/CSV/GeoJSON export |
+| `pages/2_Map_Visualization.py` | Interactive map of the extracted results |
+| `pages/3_Analytics_Dashboard.py` | KPIs, neighbourhood distribution, confidence breakdown |
+| `Optimization_Tool.py` | Earthquake assembly-area assignment + p-median |
 
-| Backend modül | İçerik |
+| Backend module | Responsibility |
 |---|---|
-| `src/pipelines/pipeline.py` | OSM çekim + filtre + spatial enrich + classification akışı |
-| `src/services/osm_service.py` | Overpass/Nominatim/OSMnx çağrıları, hata sınıfları |
-| `src/services/spatial_service.py` | CRS, geometri temizleme, alan hesaplama, mahalle atama |
-| `src/services/rule_engine.py` | Kural tabanlı sınıflandırma (strict/support/name/query_tag) |
-| `src/services/post_filter.py` | Strict tag post-filter (Overpass union sızıntısı temizliği) |
-| `src/services/excel_exporter.py` | Çok sayfalı stilize Excel raporu |
-| `src/services/excel_utils.py` | Workbook stil katmanı (`build_styled_workbook`, `style_workbook`) |
-| `src/optimizer/data_loader.py` | Excel/GeoJSON → bina + toplanma GDF |
-| `src/optimizer/od_matrix.py` | OSMnx yürüyüş grafı + OD matrisi |
-| `src/optimizer/p_median.py` | ILP (PuLP) ve Heuristic çözücüler |
-| `src/config/settings.py` | Tüm sabitler tek noktadan (WALK_SPEED_KPH, AFAD_M2_PER_PERSON, vs.) |
+| `src/pipelines/pipeline.py` | OSM fetch + filter + spatial enrich + classification flow |
+| `src/services/osm_service.py` | Overpass/Nominatim/OSMnx calls, error classes |
+| `src/services/spatial_service.py` | CRS, geometry cleaning, area calculation, neighbourhood assignment |
+| `src/services/rule_engine.py` | Rule-based classification (strict/support/name/query_tag) |
+| `src/services/post_filter.py` | Strict-tag post-filter (cleans Overpass union leakage) |
+| `src/services/excel_exporter.py` | Multi-sheet styled Excel report |
+| `src/services/excel_utils.py` | Workbook styling layer (`build_styled_workbook`, `style_workbook`) |
+| `src/optimizer/data_loader.py` | Excel/GeoJSON → buildings + assembly GeoDataFrames |
+| `src/optimizer/od_matrix.py` | OSMnx walking graph + OD matrix |
+| `src/optimizer/p_median.py` | ILP (PuLP) and heuristic solvers |
+| `src/config/settings.py` | All constants in one place (WALK_SPEED_KPH, AFAD_M2_PER_PERSON, …) |
 
-## Hızlı Başlangıç (5 dakika)
+## Quick start (5 minutes)
 
-**Gereksinim:** Python 3.10+ ve internet bağlantısı (OSM verisi için).
+**Requirements:** Python 3.10+ and an internet connection (for OSM data).
 
 ### Windows
 
 ```cmd
-git clone https://github.com/<kullanıcı>/istanbul-sdss.git
+git clone https://github.com/istanbul-sdss/istanbul-sdss.git
 cd istanbul-sdss
 setup.bat
 run_data_tool.bat
 ```
 
-İkinci uygulama (atama optimizasyonu) için ayrı pencerede:
+For the second app (assignment optimization), in a separate window:
+
 ```cmd
 run_optimizer.bat
 ```
@@ -49,54 +68,54 @@ run_optimizer.bat
 ### macOS / Linux
 
 ```bash
-git clone https://github.com/<kullanıcı>/istanbul-sdss.git
+git clone https://github.com/istanbul-sdss/istanbul-sdss.git
 cd istanbul-sdss
 ./setup.sh
 ./run_data_tool.sh
 ```
 
-İkinci uygulama (atama optimizasyonu) için ayrı terminalde:
+For the second app (assignment optimization), in a separate terminal:
+
 ```bash
 ./run_optimizer.sh
 ```
 
-> **İpucu:** İlk extraction Overpass API'den veri çekeceği için 1-3 dakika
-> sürer. Hızlı denemek için **Kadıköy** ilçesi önerilir; alternatif olarak
-> önceden hazırlanmış örnek veriler `data/samples/` klasöründedir —
-> Optimization_Tool'a doğrudan yükleyebilirsiniz (extraction beklemeden
-> harita + KPI + Excel rapor).
+> **Tip:** The first extraction pulls data from the Overpass API, so it takes
+> 1–3 minutes. **Kadıköy** is a good district for a quick test; alternatively,
+> ready-made samples live in `data/samples/` and can be loaded straight into the
+> Optimization Tool (map + KPIs + Excel report without waiting for extraction).
 
-## Manuel Kurulum (script kullanmadan)
+## Manual install (without the scripts)
 
 ```bash
-# Python 3.10+ gerekli
+# Python 3.10+ required
 python -m venv venv
 venv\Scripts\activate         # Windows
 # source venv/bin/activate    # Linux/macOS
 
 pip install -r requirements.txt
-pip install -r requirements-dev.txt   # test/lint için (opsiyonel)
+pip install -r requirements-dev.txt   # for tests/lint (optional)
 
 streamlit run Spatial_Data_Collection_Tool.py
-# Optimizasyon için ayrı entry:
+# Separate entry point for the optimizer:
 streamlit run Optimization_Tool.py --server.port 8502
 ```
 
-### Reprodüksiyon (lock file ile birebir aynı sürümler)
+### Reproducible installs (exact versions via lock files)
 
-`requirements.txt` aralıklı (`>=lower,<upper`) tutulduğu için iki kurulum
-arasında alt paketler farklı patch/minor sürümlere düşebilir. Tezde aynı
-sayıların üretilmesi, hocaların aynı çıktıyı görmesi ya da CI'da deterministik
-build için **lock file** kullanın:
+`requirements.txt` is kept with ranges (`>=lower,<upper`), so sub-packages may
+resolve to different patch/minor versions between installs. For reproducing the
+exact numbers in the thesis, letting reviewers see identical output, or
+deterministic CI builds, use the **lock files**:
 
 ```bash
-# Aralıklı yerine pinned kurulum (her paket tam sürüm)
-pip install -r requirements.lock              # sadece runtime
+# Pinned install instead of ranges (every package at an exact version)
+pip install -r requirements.lock              # runtime only
 pip install -r requirements-dev.lock          # runtime + test/lint
 ```
 
-Lock dosyaları `pip-tools` (`pip install pip-tools` veya
-`requirements-dev.txt`'ten gelir) ile yenilenir:
+The lock files are regenerated with `pip-tools` (`pip install pip-tools`, or it
+comes via `requirements-dev.txt`):
 
 ```bash
 python -m piptools compile --strip-extras \
@@ -105,219 +124,171 @@ python -m piptools compile --strip-extras \
     --output-file=requirements-dev.lock requirements.txt requirements-dev.txt
 ```
 
-Bir bağımlılığı bilinçli güncellemek için: önce `requirements.txt` veya
-`requirements-dev.txt` üst sınırını oynat, sonra yukarıdaki iki komutu
-tekrar çalıştır, sonuçtaki `.lock` farklarını review et, commit at.
+To deliberately upgrade a dependency: bump the upper bound in `requirements.txt`
+or `requirements-dev.txt`, re-run the two commands above, review the `.lock`
+diffs, and commit.
 
-## Kurulumun Doğrulanması
+## Verifying the install
 
-Kurulumdan sonra **iki dakikalık** bir doğrulama akışı:
+A two-minute sanity check after installation:
 
-1. **Test paketi geçiyor mu?** (Önce `requirements-dev.txt` kurulu olmalı —
-   `pytest` runtime'da değil, dev bağımlılıklarında.)
+1. **Does the test suite pass?** (`requirements-dev.txt` must be installed first
+   — `pytest` is a dev dependency, not a runtime one.)
    ```bash
    venv\Scripts\activate                       # Windows
    # source venv/bin/activate                  # Linux/macOS
    pip install -r requirements-dev.txt         # pytest + ruff + pre-commit
    python -m pytest tests/ -q
    ```
-   Beklenen: **tüm testler geçer, 1 skip.** (Test sayısı geliştirme sürdükçe
-   artar; sabit bir sayı vermek yerine "fail/error olmaması" baseline'dır.
-   Güncel sayım için: `python -m pytest tests/ --collect-only -q | tail -1`.)
+   Expected: **all tests pass, 1 skipped.** (The test count grows over time, so
+   the baseline is "no failures/errors" rather than a fixed number; for the
+   current count: `python -m pytest tests/ --collect-only -q | tail -1`.)
 
-2. **UI açılıyor mu?** `run_data_tool.bat`/`.sh` çalıştırın → tarayıcıda
-   `http://localhost:8501` otomatik açılmalı, "Istanbul Spatial Decision
-   Support System" başlığı görünmeli.
+2. **Does the UI open?** Run `run_data_tool.bat`/`.sh` → the browser should open
+   `http://localhost:8501` with the "Istanbul Spatial Decision Support System"
+   title.
 
-3. **Sample veri yükleniyor mu?** Ayrı pencerede `run_optimizer.bat`/`.sh`
-   → "Excel" seçeneği → `data/samples/Kadıköy_OSM_sample.xlsx` →
-   sayfaları seç (`Konut - Genel` + `Toplanma Alanı`) → ✅ Load.
-   Beklenen: ~6,665 bina + 154 toplanma alanı, ~244,000 kişi tahmini.
+3. **Does the sample data load?** In a separate window run `run_optimizer.bat`/
+   `.sh` → choose "Excel" → `data/samples/Kadıköy_OSM_sample.xlsx` → pick the
+   sheets (`Konut - Genel` + `Toplanma Alanı`) → ✅ Load. Expected: ~6,665
+   buildings + 154 assembly areas, ~244,000 estimated people.
 
-Üçü de geçiyorsa kurulum sağlamdır. Aksi halde aşağıdaki sorun giderme.
+If all three pass, the install is sound. Otherwise see Troubleshooting below.
 
-## Sorun Giderme
+## Input templates
+
+If you are not using the data-collection tool's output, you can provide your own
+input. The Optimization Tool offers two blank Excel templates under *Step 1 ·
+Load data* ("📥 Need a template? Download blank Excel"), and the same files are
+committed in [`templates/`](templates/) so you can download them straight from
+the repository:
+
+- `templates/Buildings_Assembly_template.xlsx` — buildings (demand points) and
+  candidate assembly areas.
+- `templates/TUIK_Population_template.xlsx` — neighbourhood population for the
+  *Uniform per-building* method.
+
+Each workbook has a `README` sheet documenting every column. Headers are English
+(`Latitude`, `Longitude`, `Neighbourhood`, `Area (m²)`, `Floors`, …) and the
+loader is bilingual, so filled-in templates upload back without renaming.
+
+## Troubleshooting
 
 ### Windows: "Microsoft Visual C++ 14.0 or greater is required"
-GeoPandas/Shapely binary paketleri çoğu durumda hazır wheel ile gelir; bu
-hata genelde Python 3.13+ veya çok eski pip versiyonlarında çıkar.
-- **Çözüm 1:** `python -m pip install --upgrade pip wheel` sonra
-  `pip install -r requirements.txt` tekrar.
-- **Çözüm 2:** Python 3.11 veya 3.12 kullanın (3.10/3.11/3.12 CI'da
-  doğrulanmıştır; 3.13 henüz değil).
+GeoPandas/Shapely binaries usually ship as prebuilt wheels; this error typically
+appears on Python 3.13+ or very old pip versions.
+- **Fix 1:** `python -m pip install --upgrade pip wheel`, then re-run
+  `pip install -r requirements.txt`.
+- **Fix 2:** Use Python 3.11 or 3.12 (3.10/3.11/3.12 are verified in CI; 3.13 is
+  not yet).
 
-### "ImportError: GDAL not found" / Fiona hatası
-Windows'ta nadir; GeoPandas wheel'i bağımlılıkları kendisi taşır.
-- `pip install --force-reinstall geopandas shapely fiona` deneyin.
-- Hâlâ olmuyorsa Anaconda dağıtımı kullanın:
-  `conda install -c conda-forge geopandas shapely`.
+### "ImportError: GDAL not found" / Fiona error
+Rare on Windows; the GeoPandas wheel carries its own dependencies.
+- Try `pip install --force-reinstall geopandas shapely fiona`.
+- If it still fails, use Anaconda: `conda install -c conda-forge geopandas shapely`.
 
-### "OverpassNetworkError: Tüm endpoint'ler başarısız"
-İnternet yok ya da Overpass API geçici düşmüş. Sample veriyle
-(`data/samples/Kadıköy_OSM_sample.xlsx`) çevrimdışı çalışılabilir;
-Veri Çıkartma için bağlantı şart. Birkaç dakika sonra tekrar deneyin
-ya da https://overpass-api.de/api/status durumunu kontrol edin.
+### "OverpassNetworkError: all endpoints failed"
+No internet, or the Overpass API is temporarily down. You can work offline with
+the sample data (`data/samples/Kadıköy_OSM_sample.xlsx`); a live connection is
+only required for Data Extraction. Retry in a few minutes or check
+<https://overpass-api.de/api/status>.
 
-### Streamlit sayfası tarayıcıda açılmıyor
-- Komut satırında verilen URL'yi (`http://localhost:8501`) elle açın.
-- Antivirüs / firewall localhost portunu engelleyebilir; istisna ekleyin.
-- Aynı port zaten kullanımda olabilir (başka Streamlit oturumu);
-  `--server.port 8503` gibi farklı port deneyin.
+### The Streamlit page does not open in the browser
+- Open the URL printed on the command line (`http://localhost:8501`) manually.
+- Antivirus/firewall may block the localhost port; add an exception.
+- The port may already be in use (another Streamlit session); try a different
+  one, e.g. `--server.port 8503`.
 
-### Türkçe karakter sorunu (Windows console)
-Logger UTF-8 wrapper kullanır; cp1254 console'da emoji'ler `?` olarak
-görünebilir ama hata vermez. UI'da problem yok.
+### Turkish characters in the Windows console
+The logger uses a UTF-8 wrapper; emojis may show as `?` in a cp1254 console but
+this is harmless. The UI is unaffected.
 
-## Test
+## Tests
 
 ```bash
 python -m pytest tests/
-# Hızlı: belirli bir test dosyası
+# Quick: a specific test file
 python -m pytest tests/test_category_leakage_audit.py -v
 ```
 
-Kapsamlı bir regresyon test paketi mevcut (güncel sayım için
-`pytest --collect-only -q | tail -1`); push/PR'da
-`.github/workflows/ci.yml` Python 3.10, 3.11 ve 3.12 matrisinde
-otomatik koşturur.
+A comprehensive regression suite is in place (500+ tests; for the current count
+`pytest --collect-only -q | tail -1`). On push/PR, `.github/workflows/ci.yml`
+runs it automatically on a Python 3.10, 3.11 and 3.12 matrix.
 
-## Geliştirici Araçları
+## Developer tools
 
-Repo'ya dahil ek araçlar (üretim akışına girmez):
+Extra tools included in the repo (not part of the production flow):
 
-- `analyze_outputs.py` — `output/` klasöründeki Excel çıktılarını gezerek
-  ilçe başına son dosya için satır sayısı / boş kolon oranı denetimi yapar.
-  Toplu regresyon (örn. yeni TAG_RULES değişikliklerinin tüm ilçelerde
-  beklenen kayıt sayılarını koruyup korumadığı) için hızlı bir göz atma.
-  Çalıştır: `python analyze_outputs.py`
+- `analyze_outputs.py` — walks the Excel outputs in `output/` and audits row
+  counts / empty-column ratios for the latest file per district. A quick way to
+  spot regressions (e.g. whether new `TAG_RULES` changes keep the expected
+  record counts across districts). Run: `python analyze_outputs.py`
 
-## Üçüncü Şahsa Dağıtım (Geliştirici İçin)
+## Third-party distribution (for developers)
 
-Hocaya/danışmana göndermek için temiz ZIP üretmek:
+To produce a clean ZIP to send to a supervisor/reviewer:
 
 ```bash
 python build_release.py --verify
 # → dist/istanbul_sdss_<YYYYMMDD>.zip
 ```
 
-Bu ZIP `venv/`, `cache/`, `output/`, `logs/`, `__pycache__/` gibi
-yerel/üretilmiş klasörleri DAHİL ETMEZ. Alıcı taraf ZIP'i açıp
-`setup.bat`/`setup.sh` çalıştırarak temiz ortamda kurabilir.
+This ZIP **excludes** local/generated folders such as `venv/`, `cache/`,
+`output/`, `logs/`, `__pycache__/`. The recipient unzips it and runs
+`setup.bat`/`setup.sh` to install into a clean environment.
 
-## Veri Kaynakları
+## Data sources
 
-- **OpenStreetMap (Overpass API)** — bina/POI verileri (lisans: ODbL).
-  3 mirror denemesi: `overpass-api.de` → `lz4.overpass-api.de` → `overpass.kumi.systems`.
-- **Nominatim** — ilçe sınırı geocoding.
-- **TÜİK** — nüfus tahmini için kişi başına alan varsayımı (6.25 m²/kişi).
-- **AFAD** — toplanma alanı kapasite standardı (1.5 m²/kişi).
+- **OpenStreetMap (Overpass API)** — building/POI data (licence: ODbL). Three
+  mirrors are tried: `overpass-api.de` → `lz4.overpass-api.de` →
+  `overpass.kumi.systems`.
+- **Nominatim** — district boundary geocoding.
+- **TÜİK** — per-person area assumption for population estimation (6.25 m²/person).
+- **AFAD** — assembly-area capacity standard (1.5 m²/person).
 
-## Önemli Varsayımlar
+## Key assumptions
 
-| Varsayım | Değer | Yer |
+| Assumption | Value | Location |
 |---|---|---|
-| Yetişkin yürüyüş hızı | 4.8 km/h | `src/optimizer/od_matrix.py::WALK_SPEED_KPH` |
-| AFAD m²/kişi | 1.5 m² | `src/services/spatial_service.py::AFAD_M2_PER_PERSON` |
-| Bina kişi başı alan (TÜİK) | 6.25 m² | `src/optimizer/population_estimator.py` |
-| ILP/Heuristic eşik | 5000 bina | `src/optimizer/p_median.py::ILP_THRESHOLD` |
-| Toplanma alanı varsayılan | 1000 m² (kolon yoksa, Point geometry) | `data_loader.py::DEFAULT_AREA_FALLBACK_M2` |
-| Walk graph cache versiyonu | v2 | `od_matrix.py::GRAPH_CACHE_VERSION` |
+| Adult walking speed | 4.8 km/h | `src/optimizer/od_matrix.py::WALK_SPEED_KPH` |
+| AFAD m²/person | 1.5 m² | `src/services/spatial_service.py::AFAD_M2_PER_PERSON` |
+| Per-person building area (TÜİK) | 6.25 m² | `src/optimizer/population_estimator.py` |
+| ILP/heuristic threshold | 5000 buildings | `src/optimizer/p_median.py::ILP_THRESHOLD` |
+| Assembly-area default | 1000 m² (no column, Point geometry) | `data_loader.py::DEFAULT_AREA_FALLBACK_M2` |
+| Walk-graph cache version | v2 | `od_matrix.py::GRAPH_CACHE_VERSION` |
 
-## Bilinen Kısıtlar
+## Known limitations
 
-- OSM verisi gönüllü katkıyla oluşur — bazı binalarda `building:levels`, `name`,
-  veya footprint poligonu eksik olabilir. `Data Quality` sayfası doluluk
-  yüzdelerini gösterir.
-- Overpass mirror'ları zaman zaman 504 dönebiliyor; tüm endpoint'ler düşerse
-  `OverpassNetworkError` raise edilir (sessiz "veri yok"a dönüşmez).
-- Heuristic büyük veri setlerinde (>5000 bina) ILP yerine kullanılır;
-  optimallik garantisi yoktur ama lokal optima yakındır.
-- Yürüyüş süresi tahminleri yatay; eğim/merdiven dikkate alınmaz.
-- Mahalle atama: ilçe sınırına yakın ama dışındaki Point'lere `nearest`
-  fallback ile en yakın mahalle atanır + log uyarısı verilir.
+- OSM data is volunteer-contributed — some buildings may lack `building:levels`,
+  `name`, or a footprint polygon. The `Data Quality` page shows completeness
+  percentages.
+- Overpass mirrors occasionally return 504; if all endpoints fail an
+  `OverpassNetworkError` is raised (it does not silently become "no data").
+- The heuristic solver is used instead of ILP on large datasets (>5000
+  buildings); it has no optimality guarantee but stays close to a local optimum.
+- Walking-time estimates are horizontal; slope/stairs are not considered.
+- Neighbourhood assignment: Points just outside the district boundary get the
+  nearest neighbourhood via a `nearest` fallback, with a log warning.
 
-## Son Düzeltmelerin Özeti (kritik karar kalitesi)
+## Engineering notes
 
-- **P1.1 (cache v2):** Yürüyüş grafına araç hızı imputasyonu yerine sabit
-  4.8 km/h. Eski cache (`*_walk.graphml`) artık otomatik bypass.
-- **P1.2:** GeoJSON polygon yüklenirken centroid'e çevrilmeden önce gerçek
-  alan UTM'de hesaplanır (eskiden 0/1000 m² varsayımına düşüyordu).
-- **P2.1:** Heuristic `min_max` (fairness) hedefini doğru optimize eder;
-  metadata'ya `amac` doğru aktarılır.
-- **P2.2:** `OverpassNetworkError` exception sınıfı + partial_failure flag
-  ile network outage "veri yok"tan ayrılır.
-- **P2.3:** Logger UTF-8 stream wrapper — Windows cp1254 console'da
-  emoji/özel karakter mesajları artık `UnicodeEncodeError` üretmez.
-- **P3.3:** `df_latlon_to_geodataframe` eksik kolonda açık `ValueError`,
-  geçersiz koordinatlar (0,0) Atlantic Ocean fallback'i yerine düşürülür.
+The codebase has been hardened over several phases: a large regression test
+suite (500+ tests, CI on Python 3.10–3.12 plus a Streamlit smoke test),
+centralized constants in `src/config/settings.py`, a bilingual data loader,
+content-based caching, deterministic spatial joins, hardened error handling (no
+stack-trace leakage to the UI), a consolidated Excel-styling layer, and a `ruff`
+lint baseline enforced via pre-commit and CI. See the git history for the
+detailed change log.
 
-## Sertleştirme & Konsolidasyon (Faz 1-2)
+## License
 
-- **Stack trace sızıntısı kapatıldı:** `pages/1_Data_Extraction.py` ve
-  `pages/4_Name_Lookup.py` `st.exception()` kaldırıldı; tam traceback yalnızca
-  log dosyasına yazılır, kullanıcıya kısa mesaj gösterilir.
-- **Session ID UUID:** `Optimization_Tool.py`'da Streamlit private API
-  (`st.runtime.scriptrunner`) bağımlılığı kaldırıldı; upload temp dosyaları
-  artık `uuid.uuid4()` ile session başına benzersizleştirilir.
-- **Folium popup escape merkezi helper:** `components/map_builder.safe_field`
-  ve `safe_hex_color` üç dosyadan (map_builder, map_renderer, Optimization_Tool)
-  ortak çağrılır — XSS/CSS injection tek noktadan korunur.
-- **Polygon overlay determinizmi:** `spatial_service.py` aynı alana sahip
-  birden fazla kapsayıcı polygon varsa stabil `__poly_id__` ile sıralanır;
-  Excel çıktısı sjoin batch sırasından bağımsız.
-- **Excel builder konsolidasyonu:** Üç sayfanın aynı stil pattern'i
-  `src/services/excel_utils.py`'a çekildi (`build_styled_workbook`,
-  `style_workbook`); ~150 satır kopya kod elendi.
-- **Sabit konsolidasyonu:** `AFAD_M2_PER_PERSON`, `DEFAULT_AREA_FALLBACK_M2`
-  artık yalnızca `src/config/settings.py`'da; modüller alias ile import eder.
-- **Test kapsamı:** 207 → 220 → 294 → 476 → **506+** test (Faz B'de sürekli
-  büyüyen regresyon paketi: convergence şeffaflığı, sentinel davranışı,
-  mode-aware OD, building label dedup, domain config, ILP engine
-  seçimi/fallback, sensitivity ilp_engine forwarding, vb.).
-- **Dağıtım altyapısı:** `.streamlit/config.toml` (theme + upload limit + telemetry off)
-  ve `.github/workflows/ci.yml` (Python 3.10/3.11/3.12 matrisinde pytest + smoke import).
+**Code: Apache License 2.0.** The source code of this project is licensed under
+Apache-2.0 (see `LICENSE`). It may be freely used, modified and distributed; the
+only conditions are preserving the copyright/licence notices and marking changed
+files. Apache-2.0 also includes an explicit patent grant from contributors.
 
-## Sertleştirme & Tooling (Faz A — bitti)
-
-Son bir tur sertleştirme + güvenlik ağı yatırımı:
-
-- **Bug fix paketi:**
-  - **H1** Plotly `ImportError` fallback'inde tanımsız değişken (`NameError`)
-    riski — `thresholds`/`values` `try` öncesi tanımlandı.
-  - **H2** Kapasite OFF iken reachability ön-uyarısı atlanıyordu;
-    `_check_capacity_feasibility` iki kontrolü ayırdı.
-  - **H3** Excel/CSV bytes cache `id(df)` yerine `pd.util.hash_pandas_object`
-    içerik tabanlı hash; GC reuse riski elendi. `src/utils.py` altında
-    `df_content_hash` / `nonempty_signature` ortaklaştı.
-  - **H4** `_generate_building_labels` aşırı defansif `get_loc` kaldırıldı.
-  - **H5** Eski sürüm graf cache (`*_walk_v<N<güncel>.graphml`, 50-300 MB)
-    `_prune_stale_graph_caches` ile otomatik temizleniyor.
-  - **H6** pyproj 3.7 + numpy 2 + geopandas 1.1 `DeprecationWarning`
-    (tek-noktalı `to_crs`) üç katmanda bastırıldı (runtime: `src/logger.py`;
-    test: `pytest.ini`). 38 test uyarısı → 0.
-  - **Q4** `src/analysis/__init__.py` `risk_score` modülünü import etmeye
-    çalışıyordu ama dosya yoktu — kırık paket tamamen silindi.
-- **Yan kazançlar:** `chosen_tier` dead code (name_lookup_service.py),
-  `test_neighbourhood_population_override.py` case-insensitive senaryosunda
-  eksik assertion, iki dosyada docstring/import sırası karışıklığı.
-- **Lint baseline:** `ruff` (E, W, F, I, B, UP, C4, SIM) — pyproject.toml'da
-  gerekçeli ignore listesi ile **0 aktif hata**; CI'da ayrı `lint` job.
-  `.pre-commit-config.yaml` ile commit öncesi otomatik.
-- **AppTest smoke:** `tests/test_streamlit_smoke.py` ile Home + Optimization
-  sayfaları her CI koşusunda baştan-sona render kontrolü (sample veri
-  yüklü versiyon dahil).
-
-## Lisans
-
-**Kod: Apache License 2.0.** Bu projenin kaynak kodu Apache-2.0 altında
-lisanslanmıştır (bkz. `LICENSE`). Serbestçe kullanılabilir, değiştirilebilir
-ve dağıtılabilir; tek koşul telif/lisans bildirimlerinin korunması ve
-değiştirilen dosyaların işaretlenmesidir. Apache-2.0 ayrıca katkıda
-bulunanlardan açık bir patent lisansı içerir.
-
-**Veri: kendi lisansları geçerli (Apache-2.0 kapsamı DIŞINDA).**
-`data/mahalleleri/*.geojson` ve uygulamanın Overpass üzerinden çektiği tüm
-OpenStreetMap verisi **© OpenStreetMap katkıcıları, ODbL v1.0** altındadır.
-Bu veriden türetilen veritabanlarının dağıtımı koddan bağımsız olarak ODbL'e
-uymak zorundadır. Ayrıntılar ve üçüncü-şahıs kütüphane atıfları için `NOTICE`
-dosyasına bakın.
+**Data: governed by its own licences (outside the Apache-2.0 scope).**
+`data/mahalleleri/*.geojson` and all OpenStreetMap data the app fetches via
+Overpass are **© OpenStreetMap contributors, ODbL v1.0**. Distribution of
+databases derived from this data must comply with ODbL independently of the
+code. See `NOTICE` for details and third-party library attributions.
