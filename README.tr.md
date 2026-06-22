@@ -229,7 +229,7 @@ Repo'ya dahil ek araçlar (üretim akışına girmez):
 
 ## Üçüncü Şahsa Dağıtım (Geliştirici İçin)
 
-Hocaya/danışmana göndermek için temiz ZIP üretmek:
+temiz ZIP üretmek:
 
 ```bash
 python build_release.py --verify
