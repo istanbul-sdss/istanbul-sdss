@@ -226,7 +226,7 @@ Extra tools included in the repo (not part of the production flow):
 
 ## Third-party distribution (for developers)
 
-To produce a clean ZIP to send to a supervisor/reviewer:
+To produce a clean ZIP 
 
 ```bash
 python build_release.py --verify
