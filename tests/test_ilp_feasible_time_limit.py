@@ -1,12 +1,12 @@
 """
 Regresyon (B4): CBC time-limit aşımında feasible-ama-optimal-değil çözüm
-korunmalı; K-Medoids'e sessizce düşmemeli.
+korunmalı; Heuristic'e sessizce düşmemeli.
 
 Önceki davranış: `_coz_ilp` yalnızca `prob.status == 1` (Optimal) durumunu
 kabul ediyordu. Time-limit aşımında PuLP `prob.status = 0` (NotSolved)
 döndürür AMA CBC çoğu zaman bulduğu en iyi integer-feasible çözümü saklar;
 PuLP 2.5+ bunu `prob.sol_status = 2` (LpSolutionIntegerFeasible) ile
-sinyalliyor. Eski kod o çözümü atıp sıfırdan K-Medoids koşturuyordu —
+sinyalliyor. Eski kod o çözümü atıp sıfırdan Heuristic koşturuyordu —
 gereksiz iş + kullanıcının optimizer çıktısı kalitesi gerçekte CBC'den
 daha kötü olabiliyordu.
 
@@ -83,7 +83,7 @@ def _patch_solve_to_simulate_time_limit(monkeypatch):
 
 def test_time_limit_feasible_solution_kept_not_fallback(monkeypatch):
     """
-    Time-limit'te feasible bulunduysa K-Medoids fallback'e gitmemeli;
+    Time-limit'te feasible bulunduysa Heuristic fallback'e gitmemeli;
     CBC çözümü ILP yöntem etiketiyle dönmeli.
     """
     _patch_solve_to_simulate_time_limit(monkeypatch)
@@ -91,15 +91,15 @@ def test_time_limit_feasible_solution_kept_not_fallback(monkeypatch):
 
     sonuc = coz(od, binalar, alanlar, p=2, solver="ilp", amac="min_sum")
 
-    # K-Medoids'e düşmemiş olmalı
+    # Heuristic'e düşmemiş olmalı
     assert sonuc.yontem == "ILP", (
-        f"Time-limit feasible çözüm kaybolup K-Medoids'e düşülmüş — fix gerilemiş. "
+        f"Time-limit feasible çözüm kaybolup Heuristic'e düşülmüş — fix gerilemiş. "
         f"yontem={sonuc.yontem!r}, ilp_status={sonuc.ilp_status!r}"
     )
-    # fallback_nedeni dolmamış olmalı (K-Medoids fallback işareti)
+    # fallback_nedeni dolmamış olmalı (Heuristic fallback işareti)
     assert sonuc.fallback_nedeni is None, (
         f"fallback_nedeni doldu: {sonuc.fallback_nedeni!r} — "
-        f"K-Medoids yoluna girilmiş demektir."
+        f"Heuristic yoluna girilmiş demektir."
     )
     # ilp_status etiketi "Feasible (time limit)" olmalı, downstream UI bunu
     # "not-proven-optimal" olarak gösterebilsin.
@@ -149,8 +149,8 @@ def test_no_feasible_solution_still_falls_back(monkeypatch):
 
     sonuc = coz(od, binalar, alanlar, p=2, solver="ilp", amac="min_sum")
 
-    # K-Medoids fallback'e düşmeli
-    assert sonuc.yontem == "K-Medoids"
+    # Heuristic fallback'e düşmeli
+    assert sonuc.yontem == "Heuristic"
     assert sonuc.fallback_nedeni is not None
     assert "time limit" in sonuc.fallback_nedeni.lower()
 
@@ -192,8 +192,8 @@ def test_missing_sol_status_attribute_falls_through(monkeypatch):
 
     sonuc = coz(od, binalar, alanlar, p=2, solver="ilp", amac="min_sum")
 
-    # sol_status yoksa eski yol — K-Medoids fallback
-    assert sonuc.yontem == "K-Medoids"
+    # sol_status yoksa eski yol — Heuristic fallback
+    assert sonuc.yontem == "Heuristic"
     assert sonuc.fallback_nedeni is not None
 
 

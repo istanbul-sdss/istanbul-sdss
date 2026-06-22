@@ -59,7 +59,7 @@ iteration:
    optimization workbook ("1. Summary", "2. Methodology", ...). When in
    doubt, English.
 
-7. **Proper nouns stay**: TÜİK, AFAD, OSM, OD, ILP, K-Medoids, p95,
+7. **Proper nouns stay**: TÜİK, AFAD, OSM, OD, ILP, p95,
    AFAD m²/person — these are not translated. Surrounding sentence
    structure should match the host language.
 

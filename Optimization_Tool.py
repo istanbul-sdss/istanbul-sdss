@@ -10,7 +10,7 @@ Workflow:
   1. Data      — upload buildings (demand) + assembly areas (facilities)
                  from Excel or GeoJSON
   2. OD Matrix — build a walking or driving OD matrix via OSMnx
-  3. Optimize  — solve P-Median (ILP or K-Medoids) with optional capacity
+  3. Optimize  — solve P-Median (ILP or Heuristic) with optional capacity
   4. Results   — KPIs, coverage chart, assignments, map, exports
 
 Generic-use note (for non-earthquake contexts):
@@ -400,7 +400,7 @@ with st.sidebar.expander("💾 Cache & disk"):
 st.sidebar.markdown(
     """
     <div style="font-size:0.75rem;color:#64748B;line-height:1.5;margin-top:1rem">
-    P-Median via PuLP/CBC or K-Medoids<br>
+    P-Median via PuLP/CBC or Heuristic<br>
     Walk graph: OSMnx · OpenStreetMap<br>
     © OSM Contributors, ODbL
     </div>

@@ -1,5 +1,5 @@
 """
-Regresyon: Solver seçim modu (auto/ilp/kmedoids) + time_limit override
+Regresyon: Solver seçim modu (auto/ilp/heuristic) + time_limit override
 + allow_fallback davranışı.
 
 Audit gereksinimi: Kullanıcı bazen otomatik eşiği bypass edip belirli bir
@@ -51,11 +51,11 @@ def test_solver_auto_uses_ilp_for_small_problem():
     assert sonuc.yontem == "ILP"
 
 
-def test_solver_force_kmedoids_overrides_threshold():
-    """Küçük problem olsa da kullanıcı kmedoids zorlarsa K-Medoids çalışır."""
+def test_solver_force_heuristic_overrides_threshold():
+    """Küçük problem olsa da kullanıcı heuristic zorlarsa Heuristic çalışır."""
     od, binalar, alanlar = _make_data(n_bina=20)
-    sonuc = coz(od, binalar, alanlar, p=2, solver="kmedoids", amac="min_sum")
-    assert sonuc.yontem == "K-Medoids"
+    sonuc = coz(od, binalar, alanlar, p=2, solver="heuristic", amac="min_sum")
+    assert sonuc.yontem == "Heuristic"
 
 
 def test_solver_force_ilp_for_min_max():
@@ -68,25 +68,25 @@ def test_solver_force_ilp_for_min_max():
 def test_solver_ilp_with_p95_rejected():
     """
     solver='ilp' + amac='min_p95' kombinasyonu reddedilmeli — p95 ILP'de
-    doğrusal değil. ValueError, sessizce K-Medoids'e düşmek değil.
+    doğrusal değil. ValueError, sessizce Heuristic'e düşmek değil.
     """
     od, binalar, alanlar = _make_data(n_bina=20)
     with pytest.raises(ValueError, match="min_p95"):
         coz(od, binalar, alanlar, p=2, solver="ilp", amac="min_p95")
 
 
-def test_solver_auto_routes_p95_to_kmedoids():
-    """auto + min_p95 → otomatik K-Medoids (geriye uyumlu davranış)."""
+def test_solver_auto_routes_p95_to_heuristic():
+    """auto + min_p95 → otomatik Heuristic (geriye uyumlu davranış)."""
     od, binalar, alanlar = _make_data(n_bina=20)
     sonuc = coz(od, binalar, alanlar, p=2, solver="auto", amac="min_p95")
-    assert sonuc.yontem == "K-Medoids"
+    assert sonuc.yontem == "Heuristic"
 
 
-def test_solver_kmedoids_accepts_p95():
-    """Açıkça K-Medoids + p95 sorunsuz çalışmalı."""
+def test_solver_heuristic_accepts_p95():
+    """Açıkça Heuristic + p95 sorunsuz çalışmalı."""
     od, binalar, alanlar = _make_data(n_bina=20)
-    sonuc = coz(od, binalar, alanlar, p=2, solver="kmedoids", amac="min_p95")
-    assert sonuc.yontem == "K-Medoids"
+    sonuc = coz(od, binalar, alanlar, p=2, solver="heuristic", amac="min_p95")
+    assert sonuc.yontem == "Heuristic"
     assert sonuc.amac == "min_p95"
 
 
@@ -202,7 +202,7 @@ def test_time_limit_sentinel_zero_means_unlimited(monkeypatch):
 def test_allow_fallback_false_raises_on_ilp_failure():
     """
     Kapasite çok yetersiz → ILP infeasible → allow_fallback=False ise
-    RuntimeError vermeli (sessizce K-Medoids'e düşmemeli).
+    RuntimeError vermeli (sessizce Heuristic'e düşmemeli).
 
     Setup: ulaşılabilirlik tamam (max_sure_dk=None), ama Σwᵢxᵢⱼ ≤ Cⱼ·yⱼ ve
     Σⱼyⱼ=p kısıtları birlikte talep > p·max_kapasite olduğu için infeasible.
@@ -220,13 +220,13 @@ def test_allow_fallback_false_raises_on_ilp_failure():
 
 
 def test_allow_fallback_true_falls_back_silently():
-    """allow_fallback=True (varsayılan) → ILP infeasible'da K-Medoids'e düşer."""
+    """allow_fallback=True (varsayılan) → ILP infeasible'da Heuristic'e düşer."""
     od, binalar, alanlar = _make_data(n_bina=20, weight=100.0, kapasite=10.0)
     sonuc = coz(
         od, binalar, alanlar, p=2,
         solver="ilp", kapasite=True,
         allow_fallback=True,
     )
-    # Fallback gerçekleştiyse K-Medoids dönmeli ve fallback_nedeni dolu olmalı
-    assert sonuc.yontem == "K-Medoids"
+    # Fallback gerçekleştiyse Heuristic dönmeli ve fallback_nedeni dolu olmalı
+    assert sonuc.yontem == "Heuristic"
     assert sonuc.fallback_nedeni is not None

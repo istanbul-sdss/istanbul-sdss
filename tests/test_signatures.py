@@ -89,7 +89,7 @@ def test_result_signature_legacy_4tuple():
 
 def test_result_signature_legacy_5tuple():
     """5-tuple (density eklenmiş) → density alanı dolu."""
-    sig = ResultSignature.from_legacy_tuple((3, "min_max", True, "kmedoids", 2.0))
+    sig = ResultSignature.from_legacy_tuple((3, "min_max", True, "heuristic", 2.0))
     assert sig.m2_per_person == 2.0
     assert sig.n_restarts == 1  # default
 
@@ -97,7 +97,7 @@ def test_result_signature_legacy_5tuple():
 def test_result_signature_legacy_7tuple_with_kmed():
     """7-tuple → K-Med fields dolu."""
     sig = ResultSignature.from_legacy_tuple(
-        (3, "min_p95", False, "kmedoids", None, 5, 42)
+        (3, "min_p95", False, "heuristic", None, 5, 42)
     )
     assert sig.n_restarts == 5
     assert sig.random_state == 42

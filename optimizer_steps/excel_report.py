@@ -82,8 +82,8 @@ def write_optimization_sheets(
             "p (areas opened)",
             "Method",
             "ILP engine used",
-            "K-Medoids restarts",
-            "K-Medoids random seed",
+            "Heuristic restarts",
+            "Heuristic random seed",
             "Convergence status",
             "Fallback reason",
             "Solve time (s)",
@@ -122,7 +122,7 @@ def write_optimization_sheets(
             result.p,
             result.yontem,
             (result.ilp_engine_used.upper()
-             if result.ilp_engine_used else "N/A (K-Medoids)"),
+             if result.ilp_engine_used else "N/A (greedy)"),
             int(st.session_state.get("opt_kmed_n_restarts", 1)),
             (
                 str(st.session_state.get("opt_kmed_seed_value", ""))
@@ -130,12 +130,12 @@ def write_optimization_sheets(
                 else "(unseeded)"
             ),
             (
-                f"Converged in {result.kmedoids_iterations} iter(s)"
-                if result.kmedoids_converged is True else
+                f"Converged in {result.heuristic_iterations} iter(s)"
+                if result.heuristic_converged is True else
                 (
                     f"NOT converged — hit MAX_ITER="
-                    f"{result.kmedoids_iterations}"
-                    if result.kmedoids_converged is False else
+                    f"{result.heuristic_iterations}"
+                    if result.heuristic_converged is False else
                     (
                         f"Provably optimal (CBC: {result.ilp_status})"
                         if result.ilp_status == "Optimal"
@@ -219,32 +219,32 @@ def write_optimization_sheets(
             "or Min-P95 — the population-weighted 95th-percentile "
             "walking time, an outlier-resistant fairness measure "
             "recommended for AFAD decision support. "
-            "Min-P95 is non-linear and is solved only by K-Medoids; "
-            "Min-Sum / Min-Max can be solved by either ILP or K-Medoids.",
+            "Min-P95 is non-linear and is solved only by Heuristic; "
+            "Min-Sum / Min-Max can be solved by either ILP or Heuristic.",
             domain.methodology_capacity + (
                 " The 'Compare capacity ON vs OFF' button (Step 3) "
                 "automates side-by-side sensitivity reporting."
                 if domain.show_afad_methodology else ""
             ),
             "Auto-selects PuLP + CBC ILP (provably optimal) for "
-            "≤5,000 buildings, otherwise greedy + 1-swap K-Medoids. "
-            "Advanced options let the user force ILP/K-Medoids, "
+            "≤5,000 buildings, otherwise greedy + 1-swap Heuristic. "
+            "Advanced options let the user force ILP/Heuristic, "
             "tune the ILP time limit, and enable/disable the "
-            "ILP→K-Medoids fallback when ILP is infeasible or "
+            "ILP→Heuristic fallback when ILP is infeasible or "
             "times out.",
             "ILP (PuLP/CBC): terminates with one of {Optimal, "
             "Infeasible, Unbounded, NotSolved (time limit), "
             "Undefined}. 'Optimal' status means provably "
             "globally optimal under the formulated constraints. "
-            "K-Medoids: 1-swap local search; terminates when "
+            "Greedy heuristic: 1-swap local search; terminates when "
             "no improving swap is found within the neighbourhood "
             "(certified locally optimal) OR when the iteration "
-            "limit (KMEDOIDS_MAX_ITER, default 200) is reached "
+            "limit (HEURISTIC_MAX_ITER, default 200) is reached "
             "(NOT certified — result is best-found but the "
             "heuristic may have stalled). Convergence status is "
             "surfaced in the Summary sheet and the UI banner. "
             "Multi-start restart is now exposed as an option "
-            "(Advanced K-Medoids options).",
+            "(Advanced Heuristic options).",
             "Assignments, alternatives, area-level summary, sensitivity and "
             "unreachable list — all in this workbook.",
         ],

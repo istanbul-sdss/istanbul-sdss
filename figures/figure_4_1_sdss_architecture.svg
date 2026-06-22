@@ -2636,7 +2636,7 @@ z
      <use xlink:href="#DejaVuSans-49" transform="translate(1729.105469 0)"/>
      <use xlink:href="#DejaVuSans-50" transform="translate(1758.597656 0)"/>
     </g>
-    <!-- + K-Medoids multi-start) -->
+    <!-- + Heuristic multi-start) -->
     <g style="fill: #0f172a" transform="translate(509.609781 449.580295) scale(0.08 -0.08)">
      <use xlink:href="#DejaVuSans-2b"/>
      <use xlink:href="#DejaVuSans-20" transform="translate(83.789062 0)"/>

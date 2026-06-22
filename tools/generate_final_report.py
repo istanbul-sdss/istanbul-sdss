@@ -279,7 +279,7 @@ def build():
          "assignment problem is formulated as a capacity-aware p-median model "
          "(Hakimi, 1964) that minimises population-weighted walking time, solved "
          "exactly with integer linear programming (PuLP/CBC) for small instances "
-         "and with a K-medoids heuristic for large ones. The methodology is "
+         "and with a greedy heuristic for large ones. The methodology is "
          "demonstrated on the Kadıköy district (~6,665 buildings and 154 "
          "candidate assembly areas, ~244,000 estimated residents), while the "
          "system itself is engineered as a general infrastructure applicable to "
@@ -374,7 +374,7 @@ def build():
                 "into functionally classified, analysis-ready spatial datasets "
                 "for any Istanbul district.")
     bullet(doc, "A capacity-aware p-median optimisation model with both an exact "
-                "(ILP) and a heuristic (K-medoids) solver, exposing efficiency "
+                "(ILP) and a heuristic (greedy) solver, exposing efficiency "
                 "and equity objectives.")
     bullet(doc, "An interactive decision-support application that makes the "
                 "methodology, its assumptions, and its solution quality "
@@ -642,7 +642,7 @@ def build():
          "size determines the solver: at or below 5,000 buildings the model is "
          "solved exactly as an integer linear program using PuLP with the CBC "
          "solver, yielding a provably optimal assignment; above the threshold a "
-         "capacity-aware K-medoids heuristic with greedy initialisation and "
+         "capacity-aware greedy heuristic with greedy initialisation and "
          "1-swap local search is used, returning a high-quality approximate "
          "solution and reporting whether the local search converged or hit its "
          "iteration limit. The tool can be forced into either mode for "
@@ -656,7 +656,7 @@ def build():
          "by running the Kadıköy optimisation described below on the cached "
          "dataset (data/samples/Kadıköy_OSM_sample.xlsx + the cached walking "
          "graph). Replace them with the tool's output, and insert the coverage "
-         "curve, assignment map, and K-medoids convergence chart exported from "
+         "curve, assignment map, and heuristic convergence chart exported from "
          "the optimisation tool.]", italic=True)
     section(doc, "5.1  Experimental Design / Scenarios")
     body(doc,
@@ -669,7 +669,7 @@ def build():
          "analysis over the number of opened areas p; (iii) a comparison of "
          "capacity-on versus capacity-off; (iv) a density sensitivity sweep over "
          "the area-per-person parameter; and (v) a comparison of the exact (ILP) "
-         "and heuristic (K-medoids) solvers in objective value and runtime.")
+         "and heuristic (greedy) solvers in objective value and runtime.")
     section(doc, "5.2  Analysis of Results")
     body(doc, "Base optimisation. Table 5.1 summarises the base optimisation "
               "under the efficiency objective.")
@@ -682,7 +682,7 @@ def build():
               ["Population-weighted p95 time", "—", "minutes"],
               ["Population covered ≤ 5 min", "—", "%"],
               ["Population covered ≤ 10 min", "—", "%"],
-              ["Solver / status", "—", "ILP / K-medoids"],
+              ["Solver / status", "—", "ILP / heuristic"],
               ["Runtime", "—", "seconds"],
           ])
     caption(doc, "Table 5.1  Base optimisation results for Kadıköy (efficiency objective).")
@@ -712,10 +712,10 @@ def build():
           ["Density (m²/person)", "Feasible?", "Avg time (min)"],
           [["1.0", "—", "—"], ["1.5", "—", "—"], ["2.5", "—", "—"]])
     caption(doc, "Table 5.4  Sensitivity to the area-per-person density parameter.")
-    body(doc, "Exact versus heuristic. Table 5.5 compares the ILP and K-medoids "
+    body(doc, "Exact versus heuristic. Table 5.5 compares the ILP and heuristic "
               "solvers on the same instance.")
     table(doc,
-          ["Metric", "Exact (ILP)", "Heuristic (K-medoids)"],
+          ["Metric", "Exact (ILP)", "Heuristic (greedy)"],
           [["Objective (weighted minutes)", "—", "—"],
            ["Optimality gap (%)", "0 (reference)", "—"],
            ["Runtime (s)", "—", "—"],

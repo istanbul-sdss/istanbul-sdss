@@ -129,7 +129,7 @@ def figure_4_1(out_path: Path) -> None:
     services_l2 = [
         ("Data Loader\n+ population\nweight assignment", 9.7, 3.4),
         ("OD Matrix Builder\n(OSMnx Dijkstra,\nwalk / drive)",     12.7, 3.4),
-        ("p-Median Solver Portfolio\n(CBC · HiGHS · Gurobi · CPLEX · SCIP\n+ K-Medoids multi-start)", 9.7, 1.0),
+        ("p-Median Solver Portfolio\n(CBC · HiGHS · Gurobi · CPLEX · SCIP\n+ Heuristic multi-start)", 9.7, 1.0),
     ]
     for label, x, y in services_l2:
         if "Solver" in label:

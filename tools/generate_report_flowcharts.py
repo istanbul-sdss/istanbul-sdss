@@ -36,10 +36,18 @@ plt.rcParams["font.family"] = "DejaVu Sans"
 
 def box(ax, cx, cy, w, h, title, sub, fill, edge, title_size=12, sub_size=9.5):
     """Rounded box centred at (cx, cy) with bold title + muted subtitle."""
+    # soft drop shadow (draw.io-like depth)
+    shadow = FancyBboxPatch(
+        (cx - w / 2 + 0.06, cy - h / 2 - 0.08), w, h,
+        boxstyle="round,pad=0.02,rounding_size=0.14",
+        linewidth=0, facecolor="#9AA7B4", alpha=0.20, zorder=1,
+    )
+    ax.add_patch(shadow)
     p = FancyBboxPatch(
         (cx - w / 2, cy - h / 2), w, h,
         boxstyle="round,pad=0.02,rounding_size=0.14",
-        linewidth=1.6, edgecolor=edge, facecolor=fill, mutation_aspect=1,
+        linewidth=1.8, edgecolor=edge, facecolor=fill, mutation_aspect=1,
+        zorder=2,
     )
     ax.add_patch(p)
     if sub:
@@ -85,8 +93,8 @@ def save(fig, name):
     FIG_DIR.mkdir(parents=True, exist_ok=True)
     out = FIG_DIR / name
     fig.savefig(out, format="svg", bbox_inches="tight", pad_inches=0.15)
-    # also PNG for quick preview / non-vector contexts
-    fig.savefig(out.with_suffix(".png"), dpi=150, bbox_inches="tight", pad_inches=0.15)
+    # high-res PNG (300 DPI) for crisp non-vector contexts
+    fig.savefig(out.with_suffix(".png"), dpi=300, bbox_inches="tight", pad_inches=0.15)
     plt.close(fig)
     print(f"WROTE {out}  (+ .png)")
 

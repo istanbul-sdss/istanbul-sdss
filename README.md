@@ -25,7 +25,7 @@ P-Median optimizasyonu** çalıştıran karar destek aracı.
 | `src/services/excel_utils.py` | Workbook stil katmanı (`build_styled_workbook`, `style_workbook`) |
 | `src/optimizer/data_loader.py` | Excel/GeoJSON → bina + toplanma GDF |
 | `src/optimizer/od_matrix.py` | OSMnx yürüyüş grafı + OD matrisi |
-| `src/optimizer/p_median.py` | ILP (PuLP) ve K-Medoids çözücüler |
+| `src/optimizer/p_median.py` | ILP (PuLP) ve Heuristic çözücüler |
 | `src/config/settings.py` | Tüm sabitler tek noktadan (WALK_SPEED_KPH, AFAD_M2_PER_PERSON, vs.) |
 
 ## Hızlı Başlangıç (5 dakika)
@@ -219,7 +219,7 @@ yerel/üretilmiş klasörleri DAHİL ETMEZ. Alıcı taraf ZIP'i açıp
 | Yetişkin yürüyüş hızı | 4.8 km/h | `src/optimizer/od_matrix.py::WALK_SPEED_KPH` |
 | AFAD m²/kişi | 1.5 m² | `src/services/spatial_service.py::AFAD_M2_PER_PERSON` |
 | Bina kişi başı alan (TÜİK) | 6.25 m² | `src/optimizer/population_estimator.py` |
-| ILP/K-Medoids eşik | 5000 bina | `src/optimizer/p_median.py::ILP_THRESHOLD` |
+| ILP/Heuristic eşik | 5000 bina | `src/optimizer/p_median.py::ILP_THRESHOLD` |
 | Toplanma alanı varsayılan | 1000 m² (kolon yoksa, Point geometry) | `data_loader.py::DEFAULT_AREA_FALLBACK_M2` |
 | Walk graph cache versiyonu | v2 | `od_matrix.py::GRAPH_CACHE_VERSION` |
 
@@ -230,7 +230,7 @@ yerel/üretilmiş klasörleri DAHİL ETMEZ. Alıcı taraf ZIP'i açıp
   yüzdelerini gösterir.
 - Overpass mirror'ları zaman zaman 504 dönebiliyor; tüm endpoint'ler düşerse
   `OverpassNetworkError` raise edilir (sessiz "veri yok"a dönüşmez).
-- K-Medoids büyük veri setlerinde (>5000 bina) ILP yerine kullanılır;
+- Heuristic büyük veri setlerinde (>5000 bina) ILP yerine kullanılır;
   optimallik garantisi yoktur ama lokal optima yakındır.
 - Yürüyüş süresi tahminleri yatay; eğim/merdiven dikkate alınmaz.
 - Mahalle atama: ilçe sınırına yakın ama dışındaki Point'lere `nearest`
@@ -242,7 +242,7 @@ yerel/üretilmiş klasörleri DAHİL ETMEZ. Alıcı taraf ZIP'i açıp
   4.8 km/h. Eski cache (`*_walk.graphml`) artık otomatik bypass.
 - **P1.2:** GeoJSON polygon yüklenirken centroid'e çevrilmeden önce gerçek
   alan UTM'de hesaplanır (eskiden 0/1000 m² varsayımına düşüyordu).
-- **P2.1:** K-Medoids `min_max` (fairness) hedefini doğru optimize eder;
+- **P2.1:** Heuristic `min_max` (fairness) hedefini doğru optimize eder;
   metadata'ya `amac` doğru aktarılır.
 - **P2.2:** `OverpassNetworkError` exception sınıfı + partial_failure flag
   ile network outage "veri yok"tan ayrılır.

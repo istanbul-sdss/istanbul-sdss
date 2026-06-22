@@ -145,7 +145,7 @@ def test_min_p95_metadata_preserved():
     od, binalar, alanlar = _make_outlier_setup()
     sonuc = coz(od, binalar, alanlar, p=1, kapasite=False, amac="min_p95")
     assert sonuc.amac == "min_p95"
-    assert sonuc.yontem == "K-Medoids"   # min_p95 ILP'de uygulanmaz
+    assert sonuc.yontem == "Heuristic"   # min_p95 ILP'de uygulanmaz
 
 
 def test_min_p95_constant():

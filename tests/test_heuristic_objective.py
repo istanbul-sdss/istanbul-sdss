@@ -1,9 +1,9 @@
 """
-Regresyon (P2.1): K-Medoids `min_max` (fairness) hedefini de desteklemeli;
+Regresyon (P2.1): Heuristic `min_max` (fairness) hedefini de desteklemeli;
 büyük veri setlerinde sessizce `min_sum`'a düşmemeli.
 
 Audit bulgusu: coz() n_bina > ILP_THRESHOLD (5000) olduğunda
-_coz_kmedoids'e geçiyordu, ama _coz_kmedoids `amac` parametresi ALMIYORDU.
+_coz_heuristic'e geçiyordu, ama _coz_heuristic `amac` parametresi ALMIYORDU.
 Sonuç: kullanıcı UI'da "fairness" seçtiyse de _build_result'a sabit
 `amac="min_sum"` ile geri dönüyordu — hem hedef yanlıştı hem metadata yanlıştı.
 """
@@ -15,11 +15,11 @@ import pandas as pd
 import pytest
 from shapely.geometry import Point
 
-from src.optimizer.p_median import ILP_THRESHOLD, _coz_kmedoids, coz
+from src.optimizer.p_median import ILP_THRESHOLD, _coz_heuristic, coz
 
 
 def _synthetic_inputs(n_bina: int, n_alan: int, seed: int = 42):
-    """K-Medoids tetiklenecek ölçekte sahte input üretir."""
+    """Heuristic tetiklenecek ölçekte sahte input üretir."""
     rng = np.random.default_rng(seed)
     od = rng.uniform(2, 25, size=(n_bina, n_alan)).astype(float)
     binalar = gpd.GeoDataFrame(
@@ -42,12 +42,12 @@ def _synthetic_inputs(n_bina: int, n_alan: int, seed: int = 42):
     return od, binalar, toplanma
 
 
-def test_kmedoids_signature_accepts_objective():
-    """_coz_kmedoids artık `amac` parametresi almalı."""
+def test_heuristic_signature_accepts_objective():
+    """_coz_heuristic artık `amac` parametresi almalı."""
     import inspect
-    sig = inspect.signature(_coz_kmedoids)
+    sig = inspect.signature(_coz_heuristic)
     assert "amac" in sig.parameters, (
-        "REGRESYON: _coz_kmedoids `amac` parametresi taşımıyor → büyük "
+        "REGRESYON: _coz_heuristic `amac` parametresi taşımıyor → büyük "
         "veri setinde min_max seçimi sessizce kayboluyor."
     )
 
@@ -60,7 +60,7 @@ def test_coz_min_max_metadata_preserved_at_large_scale():
     n = ILP_THRESHOLD + 50
     od, binalar, toplanma = _synthetic_inputs(n, 6)
     result = coz(od, binalar, toplanma, p=3, amac="min_max")
-    assert result.yontem == "K-Medoids", f"yöntem={result.yontem}"
+    assert result.yontem == "Heuristic", f"yöntem={result.yontem}"
     assert result.amac == "min_max", (
         f"REGRESYON: amac='min_max' istendi ama sonuç '{result.amac}'. "
         f"Kullanıcı UI'da fairness seçtiğini sanıyor, sistem efficiency "

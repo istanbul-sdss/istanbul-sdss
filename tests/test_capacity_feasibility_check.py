@@ -2,7 +2,7 @@
 Regresyon: Kapasite ön-fizibilite kontrolü.
 
 Audit bulgusu: Kullanıcı kapasite < talep durumunda saniyelerce ILP çalıştırıp
-"K-Medoids'e düştü, neden bilmiyorum" mesajıyla karşılaşıyordu. Çözüm: çözüm
+"Heuristic'e düştü, neden bilmiyorum" mesajıyla karşılaşıyordu. Çözüm: çözüm
 başlamadan önce hızlı bir ön-tarama yap, fizibilite_uyarisi alanına yaz.
 """
 from __future__ import annotations

@@ -202,7 +202,7 @@ def test_duyarlilik_analizi_accepts_multistart_kwargs():
     df = duyarlilik_analizi(
         od, binalar, alanlar,
         p_aralik=range(1, 3),
-        solver="kmedoids",
+        solver="heuristic",
         n_restarts=3,
         random_state=42,
     )
@@ -213,7 +213,7 @@ def test_duyarlilik_analizi_accepts_multistart_kwargs():
     df2 = duyarlilik_analizi(
         od, binalar, alanlar,
         p_aralik=range(1, 3),
-        solver="kmedoids",
+        solver="heuristic",
         n_restarts=3,
         random_state=42,
     )
@@ -225,7 +225,7 @@ def test_duyarlilik_analizi_accepts_multistart_kwargs():
             )
 
 
-def test_kmedoids_path_leaves_engine_used_as_none():
+def test_heuristic_path_leaves_engine_used_as_none():
     """K-Med yolundan dönen result ilp_engine_used=None olmalı."""
     import geopandas as gpd
     import numpy as np
@@ -249,6 +249,6 @@ def test_kmedoids_path_leaves_engine_used_as_none():
     }, crs="EPSG:4326")
     od = np.random.uniform(2.0, 15.0, size=(n_bina, n_alan)).astype(np.float32)
 
-    result = coz(od, binalar, alanlar, p=2, solver="kmedoids")
-    assert result.yontem == "K-Medoids"
+    result = coz(od, binalar, alanlar, p=2, solver="heuristic")
+    assert result.yontem == "Heuristic"
     assert result.ilp_engine_used is None

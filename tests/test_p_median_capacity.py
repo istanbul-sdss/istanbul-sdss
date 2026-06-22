@@ -1,5 +1,5 @@
 """
-Regresyon: K-medoids kapasite kısıtı gerçek bir hard-constraint olmalı
+Regresyon: heuristic kapasite kısıtı gerçek bir hard-constraint olmalı
 (bulgu #3).
 
 Eski hali: kapasite yetersizse `_assign_with_capacity` binayı en yakın

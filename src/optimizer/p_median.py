@@ -6,7 +6,7 @@ P-Median optimizasyonu — kapasite kısıtlı ve kısıtsız versiyonlar.
 Formülasyon (klasik p-median ILP):
   minimize  Σᵢ Σⱼ wᵢ · dᵢⱼ · xᵢⱼ            (amac="min_sum")
       veya  z                                (amac="min_max" — fairness)
-      veya  nüfus-ağırlıklı p95              (amac="min_p95", yalnızca K-Medoids)
+      veya  nüfus-ağırlıklı p95              (amac="min_p95", yalnızca Heuristic)
   s.t.
     Σⱼ xᵢⱼ = 1                        ∀i ∈ ulaşılabilir  (her bina tam 1 alana)
     xᵢⱼ ≤ yⱼ                          ∀i,j ∈ R
@@ -23,7 +23,7 @@ Not — Ulaşılabilirlik (R):
 
 Ölçek stratejisi:
   ≤ 5.000 bina  : PuLP ILP (kesin çözüm)
-  > 5.000 bina  : K-medoids (hızlı sezgisel, kapasite-farkında)
+  > 5.000 bina  : heuristic (hızlı sezgisel, kapasite-farkında)
 
 Çıktı: PMedianResult dataclass
 """
@@ -46,7 +46,7 @@ from src.config.settings import (
     ILP_TIME_LIMIT_SN as _SETTINGS_ILP_TIME_LIMIT_SN,
 )
 from src.config.settings import (
-    KMEDOIDS_MAX_ITER as _SETTINGS_KMEDOIDS_MAX_ITER,
+    HEURISTIC_MAX_ITER as _SETTINGS_HEURISTIC_MAX_ITER,
 )
 from src.config.settings import (
     P95_PERCENTILE as _SETTINGS_P95_PERCENTILE,
@@ -58,7 +58,7 @@ log = get_logger(__name__)
 # Sabitler src/config/settings.py'a taşındı; alias olarak yeniden ihraç ediliyor.
 ILP_THRESHOLD = _SETTINGS_ILP_THRESHOLD
 ILP_TIME_LIMIT_SN = _SETTINGS_ILP_TIME_LIMIT_SN
-KMEDOIDS_MAX_ITER = _SETTINGS_KMEDOIDS_MAX_ITER
+HEURISTIC_MAX_ITER = _SETTINGS_HEURISTIC_MAX_ITER
 
 # ── ILP solver engine seçim katmanı ──────────────────────────────────────────
 # CBC bundled (PuLP ile gelir). Diğerleri opsiyonel; kullanıcı kurarsa
@@ -153,7 +153,7 @@ def _make_ilp_solver(engine: str, time_limit_sn: int | None, cb: Callable | None
 #   • min_p95 : nüfus-ağırlıklı 95. yüzdelik yürüme süresi.
 #                                  Outlier-robust fairness; pratikte AFAD
 #                                  karar destek için önerilen mod. Yalnızca
-#                                  K-Medoids ile çözülür (ILP'de doğrusal
+#                                  Heuristic ile çözülür (ILP'de doğrusal
 #                                  olmadığı için).
 ObjectiveMode = Literal["min_sum", "min_max", "min_p95"]
 P95_PERCENTILE = _SETTINGS_P95_PERCENTILE
@@ -161,8 +161,8 @@ P95_PERCENTILE = _SETTINGS_P95_PERCENTILE
 # Solver seçim modu:
 #   "auto"     → ILP_THRESHOLD'a göre otomatik (geriye uyumlu varsayılan)
 #   "ilp"      → Kullanıcı zorla ILP istiyor (büyük problem yavaş olabilir)
-#   "kmedoids" → Kullanıcı zorla K-Medoids istiyor (hız, kıyaslama, vb.)
-SolverMode = Literal["auto", "ilp", "kmedoids"]
+#   "heuristic" → Kullanıcı zorla Heuristic istiyor (hız, kıyaslama, vb.)
+SolverMode = Literal["auto", "ilp", "heuristic"]
 
 
 def _weighted_percentile(
@@ -262,7 +262,7 @@ class PMedianResult:
     p95_bina_sure_dk: float = 0.0
 
     # Meta
-    yontem: str = ""                # "ILP" veya "K-Medoids"
+    yontem: str = ""                # "ILP" veya "Heuristic"
     amac: str = "min_sum"           # "min_sum" veya "min_max"
     cozum_suresi_sn: float = 0.0
     p: int = 0
@@ -271,35 +271,35 @@ class PMedianResult:
 
     # Teşhis (UI'da uyarı kutucuğu olarak gösterilir, raporda da yer alır)
     fizibilite_uyarisi: str | None = None   # ön-tarama: kapasite < talep vb.
-    fallback_nedeni: str | None = None      # ILP→K-Medoids düşüşünün net sebebi
+    fallback_nedeni: str | None = None      # ILP→Heuristic düşüşünün net sebebi
     ilp_status: str | None = None           # PuLP status string ("Optimal", "Infeasible"...)
 
-    # K-Medoids convergence şeffaflığı.
+    # Heuristic convergence şeffaflığı.
     #
-    # K-Medoids 1-swap local search heuristic'i lokal optimuma yakınsamayı
+    # Heuristic 1-swap local search heuristic'i lokal optimuma yakınsamayı
     # MATEMATİKSEL OLARAK GARANTİ ETMEZ — pratikte yakınsar ama edge case'lerde
     # MAX_ITER limitine takılabilir. Üç durumlu ayrım:
     #
-    #   • kmedoids_converged = True
+    #   • heuristic_converged = True
     #         → Local search "no improving swap found" ile durdu;
     #           çözüm certified locally optimal (1-swap mahallesinde).
-    #   • kmedoids_converged = False
+    #   • heuristic_converged = False
     #         → MAX_ITER'e takıldı; çözüm best-found heuristic — locally
     #           optimal olduğu garanti edilemez. UI/Excel açıkça uyarır.
-    #   • kmedoids_converged = None
+    #   • heuristic_converged = None
     #         → ILP path kullanıldı; PuLP/CBC `prob.status` ayrıca raporlanır
-    #           (`ilp_status`). Convergence kavramı K-Medoids'e özgü.
+    #           (`ilp_status`). Convergence kavramı Heuristic'e özgü.
     #
-    # `kmedoids_iterations` swap döngüsünün gerçek tur sayısını taşır;
+    # `heuristic_iterations` swap döngüsünün gerçek tur sayısını taşır;
     # MAX_ITER'le karşılaştırılarak takılma teşhis edilebilir.
-    kmedoids_converged: bool | None = None
-    kmedoids_iterations: int | None = None
+    heuristic_converged: bool | None = None
+    heuristic_iterations: int | None = None
 
     # Multi-start convergence trajectory: bir liste içinde her restart için
     # iteration-başı cost değerleri. UI tez raporu için line chart olarak
-    # gösterir (Step 4 → "K-Medoids convergence trajectory"). ILP yolundan
+    # gösterir (Step 4 → "Heuristic convergence trajectory"). ILP yolundan
     # dönen result'ta None.
-    kmedoids_trajectories: list[list[float]] | None = None
+    heuristic_trajectories: list[list[float]] | None = None
 
     # Hangi ILP engine'in gerçekten kullanıldığı (cbc / highs / gurobi / ...).
     # Kullanıcı Gurobi seçti ama kurulu değilse otomatik CBC'ye düştüğümüzde
@@ -343,11 +343,11 @@ def coz(
         max_sure_dk  : bu süreyi aşan atamalar TAMAMEN yasaklanır (hard kısıt).
                        Ulaşılamayan binalar ulasilamaz_binalar'da raporlanır.
         amac         : "min_sum" | "min_max" | "min_p95"
-                       min_p95 sadece K-Medoids'te uygulanır.
+                       min_p95 sadece Heuristic'te uygulanır.
         progress_cb  : ilerleme callback
         solver       : "auto" (varsayılan; ILP_THRESHOLD'a göre) |
                        "ilp" (zorla ILP, büyük problem yavaş) |
-                       "kmedoids" (zorla K-Medoids).
+                       "heuristic" (zorla Heuristic).
                        Solver-amac çakışmaları: solver="ilp" + amac="min_p95"
                        isteği reddedilir (ValueError) — ILP'de p95 doğrusal değil.
         time_limit_sn: ILP zaman limiti (saniye).
@@ -361,7 +361,7 @@ def coz(
                        Akademik karşılaştırma / "ne kadar sürerse sürsün"
                        senaryosu için. Eski `time_limit_sn=0` sentinel'inin
                        yerini alan, niyeti açıkça gösteren API.
-        allow_fallback: True (varsayılan) → ILP başarısızsa K-Medoids'e düş.
+        allow_fallback: True (varsayılan) → ILP başarısızsa Heuristic'e düş.
                        False → ILP başarısızsa RuntimeError fırlat (akademik
                        karşılaştırma, A/B testi için).
         ilp_engine: ILP backend seçimi (cbc/highs/gurobi/cplex/scip). Default
@@ -370,10 +370,10 @@ def coz(
                        çözülür; CBC'de günler veya hiç bitmez. list_available_
                        ilp_engines() ile UI'da seçim sunulur; kurulu olmayan
                        engine istendiğinde CBC'ye düşülür ve log'a not düşer.
-        n_restarts   : K-Medoids multi-start restart sayısı (default 1 =
+        n_restarts   : Heuristic multi-start restart sayısı (default 1 =
                        backward-compat tek-shot). >1 verildiğinde 1. restart
                        deterministik greedy init, kalan restartlar rastgele
-                       başlangıç medoid'ten greedy doldurur. En düşük maliyetli
+                       başlangıç center'ten greedy doldurur. En düşük maliyetli
                        sonuç döner. Patolojik plateau senaryolarında MAX_ITER
                        takılma riski azalır; akademik kalite için n_restarts=3
                        önerilir.
@@ -392,12 +392,12 @@ def coz(
         raise ValueError("No assembly areas — optimization cannot run.")
     if p <= 0:
         raise ValueError(f"p={p} is invalid; must be at least 1.")
-    if solver not in ("auto", "ilp", "kmedoids"):
-        raise ValueError(f"solver={solver!r} is invalid; must be 'auto'|'ilp'|'kmedoids'.")
+    if solver not in ("auto", "ilp", "heuristic"):
+        raise ValueError(f"solver={solver!r} is invalid; must be 'auto'|'ilp'|'heuristic'.")
     if solver == "ilp" and amac == "min_p95":
         raise ValueError(
             "solver='ilp' + amac='min_p95' is not supported — "
-            "p95 is not linear in ILP. Use solver='kmedoids' or 'auto', "
+            "p95 is not linear in ILP. Use solver='heuristic' or 'auto', "
             "or change amac to 'min_max'/'min_sum'."
         )
     p = min(p, n_alan)   # p cannot exceed the number of areas
@@ -408,22 +408,22 @@ def coz(
 
     # Solver selection logic
     if solver == "ilp":
-        use_kmedoids = False
+        use_heuristic = False
         if n_bina > ILP_THRESHOLD:
             cb(f"⚠ User forced ILP ({n_bina:,} buildings > {ILP_THRESHOLD} "
                f"threshold). Solve may be slow or hit the time limit.")
-    elif solver == "kmedoids":
-        use_kmedoids = True
+    elif solver == "heuristic":
+        use_heuristic = True
     else:  # auto
-        # min_p95 only solvable by K-Medoids (p95 is not linear in ILP).
-        use_kmedoids = (n_bina > ILP_THRESHOLD) or (amac == "min_p95")
+        # min_p95 only solvable by Heuristic (p95 is not linear in ILP).
+        use_heuristic = (n_bina > ILP_THRESHOLD) or (amac == "min_p95")
 
     cb(f"P-Median starting: p={p}, {n_bina:,} buildings, {n_alan} areas, "
-       f"solver={solver}, method={'K-Medoids' if use_kmedoids else 'ILP'}, "
+       f"solver={solver}, method={'Heuristic' if use_heuristic else 'ILP'}, "
        f"objective={amac}, capacity={kapasite}, max_sure={max_sure_dk}, "
        f"allow_fallback={allow_fallback}")
 
-    if not use_kmedoids:
+    if not use_heuristic:
         # Effective time-limit çözümleme:
         #   1. unlimited=True  → solver'a None (sınırsız)
         #   2. time_limit_sn=0 → None (deprecated sentinel, hâlâ desteklenir)
@@ -445,10 +445,10 @@ def coz(
             random_state=random_state,
         )
     else:
-        # P2.1: amac parametresi de aktarılır. Önceden _coz_kmedoids `amac`
+        # P2.1: amac parametresi de aktarılır. Önceden _coz_heuristic `amac`
         # almıyordu, kullanıcı `min_max` seçse bile sonuç sessizce `min_sum`
         # döndürüyordu (audit P2.1).
-        result = _coz_kmedoids(
+        result = _coz_heuristic(
             od, binalar_gdf, toplanma_gdf, p, kapasite, max_sure_dk, amac, cb,
             n_restarts=n_restarts, random_state=random_state,
         )
@@ -656,9 +656,9 @@ def _coz_ilp(
     # CBC sometimes stops on time limit having found a feasible integer
     # solution but without proving optimality. In that case prob.status is
     # NotSolved (0) but PuLP's sol_status is LpSolutionIntegerFeasible (2).
-    # Previously we threw that solution away and fell back to K-Medoids;
+    # Previously we threw that solution away and fell back to Heuristic;
     # CBC's best-found integer solution is almost always at least as good
-    # as a fresh K-Medoids run on the same problem, so we now keep it.
+    # as a fresh Heuristic run on the same problem, so we now keep it.
     # Defensive `getattr` — older PuLP without sol_status falls through to
     # the existing fallback path (same behaviour as before).
     sol_status = getattr(prob, "sol_status", None)
@@ -667,7 +667,7 @@ def _coz_ilp(
     if prob.status != 1 and not ilp_feasible_only:
         # PuLP status kodları: 1=Optimal, 0=NotSolved, -1=Infeasible,
         # -2=Unbounded, -3=Undefined. Time-limit aşımında bazen 0 dönebiliyor.
-        # Kullanıcının "neden K-Medoids'e düştüm?" sorusuna net cevap üretelim.
+        # Kullanıcının "neden Heuristic'e düştüm?" sorusuna net cevap üretelim.
         if prob.status == -1:
             sebep = (
                 "ILP infeasible — model has no feasible solution. Most likely "
@@ -683,7 +683,7 @@ def _coz_ilp(
             sebep = (
                 f"ILP did not find any feasible solution within {_tl_msg} "
                 f"(problem too large or hard). "
-                f"K-Medoids will produce a fast approximate solution."
+                f"Heuristic will produce a fast approximate solution."
             )
         else:
             sebep = f"ILP unexpected status: {status} (code={prob.status})."
@@ -695,9 +695,9 @@ def _coz_ilp(
                 f"ILP failed and allow_fallback=False. {sebep}"
             )
 
-        cb(f"ILP failed → falling back to K-Medoids. Reason: {sebep}")
+        cb(f"ILP failed → falling back to Heuristic. Reason: {sebep}")
         # P2.1: amac fallback'te de korunur (önceden parametre yoktu).
-        result = _coz_kmedoids(
+        result = _coz_heuristic(
             od, binalar_gdf, toplanma_gdf, p, kapasite, max_sure_dk, amac, cb,
             n_restarts=n_restarts, random_state=random_state,
         )
@@ -712,7 +712,7 @@ def _coz_ilp(
     if ilp_feasible_only:
         # Best-found integer solution will be extracted below; mark the
         # status so downstream UI/report can tell it's a feasible-but-not-
-        # proven-optimal CBC result (not a K-Medoids fallback).
+        # proven-optimal CBC result (not a Heuristic fallback).
         # NOTE: with time_limit_sn=None (unlimited) CBC cannot return
         # IntegerFeasible without proving optimality, so this branch
         # effectively only fires under a finite limit. Defensive format.
@@ -720,7 +720,7 @@ def _coz_ilp(
         cb(
             f"ILP stopped at time limit ({_tl_msg}) with a feasible "
             f"integer solution (sol_status=IntegerFeasible). Keeping CBC's "
-            f"best-found solution instead of restarting with K-Medoids."
+            f"best-found solution instead of restarting with Heuristic."
         )
         status = "Feasible (time limit)"
 
@@ -745,9 +745,9 @@ def _coz_ilp(
     return result
 
 
-# ── K-Medoids sezgiseli (büyük ölçek) ────────────────────────────────────────
+# ── Heuristic sezgiseli (büyük ölçek) ────────────────────────────────────────
 
-def _coz_kmedoids(
+def _coz_heuristic(
     od: np.ndarray,
     binalar_gdf: gpd.GeoDataFrame,
     toplanma_gdf: gpd.GeoDataFrame,
@@ -760,7 +760,7 @@ def _coz_kmedoids(
     random_state: int | None = None,
 ) -> PMedianResult:
     """
-    Greedy başlangıç + local search ile k-medoids.
+    Greedy başlangıç + local search ile heuristic.
     ILP'ye yakın sonuç, çok daha hızlı.
 
     Kapasite-farkında: `kapasite=True` ise atamalar greedy olarak doldurulur,
@@ -770,7 +770,7 @@ def _coz_kmedoids(
       • "min_sum" → toplam ağırlıklı yürüyüş süresi (efficiency).
       • "min_max" → en kötü atama süresini minimize (fairness). Lokal arama
         cost fonksiyonu max yürüyüş süresini ölçer; greedy init de min_max'a
-        göre ayarlanmıştır. Önceden K-Medoids `amac` parametresi taşımıyordu,
+        göre ayarlanmıştır. Önceden Heuristic `amac` parametresi taşımıyordu,
         UI'daki fairness seçimi büyük ölçekte sessizce min_sum'a düşüyordu
         (audit P2.1).
       • "min_p95" → nüfus-ağırlıklı 95. yüzdelik süreyi minimize. Her bina'nın
@@ -793,7 +793,7 @@ def _coz_kmedoids(
     kapasiteler = None
     if kapasite and "kapasite" in toplanma_gdf.columns:
         kapasiteler = toplanma_gdf["kapasite"].values.astype(float)
-        cb(f"K-Medoids in capacity-aware mode (total: {kapasiteler.sum():,.0f})")
+        cb(f"Heuristic in capacity-aware mode (total: {kapasiteler.sum():,.0f})")
 
     # ── Ceza stratejisi ──────────────────────────────────────────────────────
     # Ulaşılamaz (inf) hücreler için maliyet hesabında sabit, anlamlı bir ceza
@@ -822,9 +822,9 @@ def _coz_kmedoids(
         rs: np.random.RandomState | None,
     ) -> tuple[list[int], float, bool, int, list[float]]:
         """
-        Bir K-Medoids restart'ı: greedy init + local search swap.
+        Bir Heuristic restart'ı: greedy init + local search swap.
         rs=None ise deterministik greedy (eski tek-shot davranışı);
-        rs verildiyse ilk medoid rastgele seçilir, kalan p-1 medoid greedy.
+        rs verildiyse ilk center rastgele seçilir, kalan p-1 center greedy.
 
         Dönüş: (secili, cost, converged, iterasyon, trajectory)
           trajectory: her iyileştirme adımındaki cost (greedy-init sonrası
@@ -832,7 +832,7 @@ def _coz_kmedoids(
         """
         # ── Greedy başlangıç ────────────────────────────────────────────────
         if rs is None:
-            # Deterministik: en iyi tek-medoid amaç fonksiyonuna göre
+            # Deterministik: en iyi tek-center amaç fonksiyonuna göre
             if amac == "min_max":
                 ilk_kotu = od_ceza.max(axis=0)
                 secili_local = [int(np.argmin(ilk_kotu))]
@@ -846,10 +846,10 @@ def _coz_kmedoids(
                 maliyet = (od_ceza * agirliklar[:, None]).sum(axis=0)
                 secili_local = [int(np.argmin(maliyet))]
         else:
-            # Rastgele ilk medoid → çeşitli başlangıç noktaları
+            # Rastgele ilk center → çeşitli başlangıç noktaları
             secili_local = [int(rs.randint(n_alan))]
 
-        # Kalan p-1 medoid: greedy (her durumda deterministik ekleme)
+        # Kalan p-1 center: greedy (her durumda deterministik ekleme)
         for _ in range(p - 1):
             min_sure = od_ceza[:, secili_local].min(axis=1)
             kalan = [j for j in range(n_alan) if j not in secili_local]
@@ -880,11 +880,11 @@ def _coz_kmedoids(
         mevcut = toplam_maliyet(secili_local)
         # Trajectory: ilk değer greedy-init sonrası cost. Her swap iyileştirme
         # sonrası yeni cost eklenir. UI bunu line chart olarak gösterir
-        # (Step 4 → K-Medoids convergence trajectory).
+        # (Step 4 → Heuristic convergence trajectory).
         trajectory: list[float] = [float(mevcut)]
         gelisim = True
         it = 0
-        while gelisim and it < KMEDOIDS_MAX_ITER:
+        while gelisim and it < HEURISTIC_MAX_ITER:
             gelisim = False
             it += 1
             for i_sec, _acik_j in enumerate(secili_local):
@@ -903,17 +903,17 @@ def _coz_kmedoids(
                     break
 
         # Convergence raporlaması
-        converged = (it < KMEDOIDS_MAX_ITER)
+        converged = (it < HEURISTIC_MAX_ITER)
         return secili_local, mevcut, converged, it, trajectory
 
     # ── Multi-restart loop ───────────────────────────────────────────────────
     # 1. restart: deterministik greedy (rs=None → backward-compat)
     # 2..N restartlar: random_state'i seed olarak kullanan farklı RNG'ler →
-    # her restart farklı bir başlangıç medoid'den greedy doldurur. En düşük
+    # her restart farklı bir başlangıç center'den greedy doldurur. En düşük
     # maliyetli sonucu seçeriz. Local-optimum'a takılma riski azalır.
     n_restarts_eff = max(1, int(n_restarts))
     cb(
-        f"K-Medoids starting (greedy init + local search"
+        f"Heuristic starting (greedy init + local search"
         f"{f', {n_restarts_eff} restarts, seed={random_state}' if n_restarts_eff > 1 else ''})..."
     )
 
@@ -949,7 +949,7 @@ def _coz_kmedoids(
     # Eski isimleri kullan (aşağıdaki Final assignment + reporting değişmesin)
     secili = best_secili
     mevcut_maliyet = best_maliyet
-    kmedoids_converged = best_converged
+    heuristic_converged = best_converged
     iterasyon = best_iterasyon
 
     if n_restarts_eff > 1:
@@ -960,22 +960,22 @@ def _coz_kmedoids(
         )
         if not best_converged:
             cb(
-                f"⚠ Best restart hit MAX_ITER={KMEDOIDS_MAX_ITER} "
+                f"⚠ Best restart hit MAX_ITER={HEURISTIC_MAX_ITER} "
                 f"— result is best-found, NOT certified locally optimal."
             )
     else:
         cb(f"Greedy init complete: {secili}")
 
     # Convergence durumu artık _kmed_single_run içinde hesaplanıp
-    # kmedoids_converged + iterasyon değişkenlerine multi-restart loop'tan
+    # heuristic_converged + iterasyon değişkenlerine multi-restart loop'tan
     # geliyor. Tek-restart (backward-compat) durumunda da aynı yol — bu
     # blok eskiden duplicate hesaplama yapıyordu, kaldırıldı.
     if n_restarts_eff == 1:
-        if kmedoids_converged:
+        if heuristic_converged:
             cb(f"Local search converged: {iterasyon} iterations, cost={mevcut_maliyet:.1f}")
         else:
             cb(
-                f"Local search hit MAX_ITER={KMEDOIDS_MAX_ITER} limit "
+                f"Local search hit MAX_ITER={HEURISTIC_MAX_ITER} limit "
                 f"(cost={mevcut_maliyet:.1f}) — result is best-found, "
                 f"NOT certified locally optimal"
             )
@@ -1004,15 +1004,15 @@ def _coz_kmedoids(
 
     return _build_result(
         atama, secili, od_clean, binalar_gdf, toplanma_gdf, p,
-        yontem="K-Medoids",
+        yontem="Heuristic",
         amac=amac,   # P2.1: kullanıcı seçimi metadata'ya doğru aktarılır
         sure=time.time() - t0,
         max_sure_dk_kisit=max_sure_dk,
         kapasite_aktif=(kapasiteler is not None),
         sebep_kodlari=sebep_kodlari,
-        kmedoids_converged=kmedoids_converged,
-        kmedoids_iterations=iterasyon,
-        kmedoids_trajectories=all_trajectories,
+        heuristic_converged=heuristic_converged,
+        heuristic_iterations=iterasyon,
+        heuristic_trajectories=all_trajectories,
     )
 
 
@@ -1101,12 +1101,12 @@ def _build_result(
     max_sure_dk_kisit: float | None,
     kapasite_aktif: bool,
     sebep_kodlari: np.ndarray | None = None,   # 0=atandı, 1=ağda ulaşılamaz, 2=kapasite yetersiz
-    # K-Medoids convergence şeffaflığı — ILP yolundan çağrıldığında None
-    # default'ları ile geriye uyumlu kalır; K-Medoids yolundan caller
+    # Heuristic convergence şeffaflığı — ILP yolundan çağrıldığında None
+    # default'ları ile geriye uyumlu kalır; Heuristic yolundan caller
     # bunları doldurur.
-    kmedoids_converged: bool | None = None,
-    kmedoids_iterations: int | None = None,
-    kmedoids_trajectories: list[list[float]] | None = None,
+    heuristic_converged: bool | None = None,
+    heuristic_iterations: int | None = None,
+    heuristic_trajectories: list[list[float]] | None = None,
     ilp_engine_used: str | None = None,
 ) -> PMedianResult:
 
@@ -1205,7 +1205,7 @@ def _build_result(
     # ── Ulaşılamayan binalar ──────────────────────────────────────────────────
     ulasilamaz_idxler = np.where(ulasilamaz_mask)[0]
     if len(ulasilamaz_idxler) > 0:
-        # Reason text: parse sebep_kodlari (0/1/2) from K-Medoids if present;
+        # Reason text: parse sebep_kodlari (0/1/2) from Heuristic if present;
         # otherwise (ILP path) use the classic message.
         def _sebep_metni(idx: int) -> str:
             if sebep_kodlari is not None:
@@ -1214,7 +1214,7 @@ def _build_result(
                     return "Insufficient capacity (reachable areas full)"
                 if kod == 1:
                     return "Unreachable in walking network"
-            # ILP path or capacity-less k-medoids
+            # ILP path or capacity-less heuristic
             if max_sure_dk_kisit:
                 return f"Nearest area > {max_sure_dk_kisit} min"
             return "Unreachable in walking network"
@@ -1324,9 +1324,9 @@ def _build_result(
         p                      = p,
         max_sure_dk_kisit      = max_sure_dk_kisit,
         kapasite_aktif         = kapasite_aktif,
-        kmedoids_converged     = kmedoids_converged,
-        kmedoids_iterations    = kmedoids_iterations,
-        kmedoids_trajectories  = kmedoids_trajectories,
+        heuristic_converged     = heuristic_converged,
+        heuristic_iterations    = heuristic_iterations,
+        heuristic_trajectories  = heuristic_trajectories,
         ilp_engine_used        = ilp_engine_used,
         alan_ozeti             = alan_ozeti,
     )

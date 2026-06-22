@@ -81,21 +81,21 @@ def render_step4_results(domain: DomainConfig) -> None:
         f"{objective_txt} · {cap_txt} · {_res_mode_txt}.",
     )
 
-    # K-Medoids convergence banner — solver kalitesi şeffaflığı.
+    # Heuristic convergence banner — solver kalitesi şeffaflığı.
     # ILP path None döner (PuLP/CBC için convergence kavramı farklı —
-    # `ilp_status` zaten taşınır). K-Medoids için True=converged (locally
+    # `ilp_status` zaten taşınır). Heuristic için True=converged (locally
     # optimal certified), False=MAX_ITER hit (best-found, NOT certified).
-    if result.kmedoids_converged is True:
-        _iter_n = result.kmedoids_iterations or 0
+    if result.heuristic_converged is True:
+        _iter_n = result.heuristic_iterations or 0
         st.success(
             f"✓ **Local search converged** in {_iter_n} iteration(s). "
             f"Solution is certified locally optimal (no improving 1-swap "
-            f"found within the K-Medoids neighbourhood)."
+            f"found within the Heuristic neighbourhood)."
         )
-    elif result.kmedoids_converged is False:
-        from src.optimizer.p_median import KMEDOIDS_MAX_ITER
+    elif result.heuristic_converged is False:
+        from src.optimizer.p_median import HEURISTIC_MAX_ITER
         st.warning(
-            f"⚠ **Local search hit MAX_ITER={KMEDOIDS_MAX_ITER} limit** — "
+            f"⚠ **Local search hit MAX_ITER={HEURISTIC_MAX_ITER} limit** — "
             f"the result is the best found so far but is **NOT certified** "
             f"locally optimal. The heuristic may have missed further "
             f"improving swaps. Interpret KPIs as an upper bound on the "
@@ -111,7 +111,7 @@ def render_step4_results(domain: DomainConfig) -> None:
                 f"optimal under the formulated constraints."
             )
 
-    # ILP → K-Medoids fallback banner — sticky görünür uyarı.
+    # ILP → Heuristic fallback banner — sticky görünür uyarı.
     # `result.fallback_nedeni` populate edilmiş ise kullanıcı ILP'nin
     # başarısız olduğunu (infeasible / time limit / capacity-tight) net
     # görsün. Raporda "exact optimum" ile "heuristic fallback" ayrımı
@@ -119,7 +119,7 @@ def render_step4_results(domain: DomainConfig) -> None:
     if result.fallback_nedeni:
         st.info(
             f"ℹ **Solver fallback used:** the exact ILP attempt did not "
-            f"yield a usable solution → switched to K-Medoids heuristic. "
+            f"yield a usable solution → switched to greedy heuristic. "
             f"**Reason:** {result.fallback_nedeni} "
             f"Reported KPIs reflect the heuristic solution, NOT a provably "
             f"optimal ILP solution. Consider relaxing constraints (capacity, "
@@ -359,15 +359,15 @@ def render_step4_results(domain: DomainConfig) -> None:
 
         st.markdown("---")
 
-    # ── F7: K-Medoids convergence trajectory display ────────────────────
+    # ── F7: Heuristic convergence trajectory display ────────────────────
     # Multi-start (n_restarts > 1) çalıştırıldığında her restart için
     # iteration-başı cost trajectory'sini ayrı line olarak çiz. Tek-shot
     # (n_restarts=1) durumunda tek bir line yine de gösterilir.
-    _traj = getattr(result, "kmedoids_trajectories", None)
+    _traj = getattr(result, "heuristic_trajectories", None)
     if _traj is not None and len(_traj) > 0:
         st.markdown("---")
         st.markdown(
-            f"### 📉 K-Medoids convergence trajectory\n"
+            f"### 📉 Heuristic convergence trajectory\n"
             f"_Cost reduction at each 1-swap improvement, "
             f"per restart ({len(_traj)} restart(s))._"
         )

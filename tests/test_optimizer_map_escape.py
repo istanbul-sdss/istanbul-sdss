@@ -92,7 +92,7 @@ def test_render_atama_haritasi_escapes_name_in_popup(monkeypatch):
         nufus_kapsama_30dk_pct=100.0,
         ulasilamaz_sayisi=0,
         ulasilamaz_nufus=0.0,
-        yontem="K-Medoids",
+        yontem="Heuristic",
         amac="min_sum",
     )
 

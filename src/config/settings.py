@@ -51,15 +51,15 @@ GRAPH_CACHE_VERSION = 2
 # Şehir-içi yaya literatür aralığı 1.3-1.5; afet bağlamında temkinli yüksek değer.
 HAVERSINE_DETOUR_FACTOR = float(os.getenv("HAVERSINE_DETOUR_FACTOR", "1.4"))
 
-# ILP/K-Medoids otomatik geçiş eşiği. Üstünde ILP CBC ile pratik değil;
+# ILP/Heuristic otomatik geçiş eşiği. Üstünde ILP CBC ile pratik değil;
 # kullanıcı solver=ilp seçerse override edilir.
 ILP_THRESHOLD = int(os.getenv("ILP_THRESHOLD", "5000"))
 
 # ILP çözücü zaman limiti (saniye). 5 dk varsayılan; kullanıcı UI'dan uzatabilir.
 ILP_TIME_LIMIT_SN = int(os.getenv("ILP_TIME_LIMIT_SN", "300"))
 
-# K-Medoids local search üst sınırı. 200 üzerinde marjinal kazanç çok az.
-KMEDOIDS_MAX_ITER = int(os.getenv("KMEDOIDS_MAX_ITER", "200"))
+# Heuristic local search üst sınırı. 200 üzerinde marjinal kazanç çok az.
+HEURISTIC_MAX_ITER = int(os.getenv("HEURISTIC_MAX_ITER", "200"))
 
 # Fairness modu için yüzdelik. 95 = AFAD karar destek için makul outlier toleransı.
 P95_PERCENTILE = 95.0

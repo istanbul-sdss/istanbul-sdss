@@ -2,7 +2,7 @@
 optimizer_steps/step3_solve.py — Step 3: Optimization.
 
 Sprint 2 #8 (phase 5, final): 656-line Step 3 block (solver inputs,
-solver mode, advanced ILP options, advanced K-Medoids options, run
+solver mode, advanced ILP options, advanced Heuristic options, run
 button, sensitivity analysis, capacity ON/OFF compare) extracted
 from Optimization_Tool.py.
 
@@ -49,7 +49,7 @@ def render_step3_solve(domain: DomainConfig) -> None:
     cards.section_title(
         "3 · P-Median optimization",
         "Select the number of assembly areas to open and (optionally) enforce "
-        "capacity. The solver auto-picks ILP or K-Medoids by problem size.",
+        "capacity. The solver auto-picks ILP or Heuristic by problem size.",
     )
 
     n_area     = len(st.session_state.opt_assembly)
@@ -59,7 +59,7 @@ def render_step3_solve(domain: DomainConfig) -> None:
 
     with st.container(border=True):
         # ── Solver radio'sunu ana panele çıkar (Madde 1.5) ───────────────
-        # Akademik terminoloji: Exact (ILP) / Heuristic (K-Medoids) / Auto.
+        # Akademik terminoloji: Exact (ILP) / Heuristic (greedy) / Auto.
         # Tezdeki "exact vs heuristic" karşılaştırmasını UI ile hizalar.
         st.markdown("**Solver method**")
         solver_label = st.radio(
@@ -67,7 +67,7 @@ def render_step3_solve(domain: DomainConfig) -> None:
             [
                 f"🤖 Auto — Exact if ≤{ILP_THRESHOLD:,} buildings, else Heuristic",
                 "🎯 Exact (ILP, PuLP/CBC) — mathematical optimum",
-                "⚡ Heuristic (K-Medoids) — fast, approximate",
+                "⚡ Heuristic (greedy) — fast, approximate",
             ],
             index=0,
             horizontal=True,
@@ -75,12 +75,12 @@ def render_step3_solve(domain: DomainConfig) -> None:
             label_visibility="collapsed",
             help=(
                 "**Auto:** Picks by building count (ILP below the threshold, "
-                "K-Medoids above). The `min_p95` objective always uses "
+                "Heuristic above). The `min_p95` objective always uses "
                 "Heuristic.\n\n"
                 "**Exact (ILP):** Mathematical optimum via PuLP/CBC. "
                 "Preferred for small data sets. Large problems may hit the "
                 "time limit.\n\n"
-                "**Heuristic (K-Medoids):** Greedy init + 1-swap local "
+                "**Heuristic (greedy):** Greedy init + 1-swap local "
                 "search. Fast, ~1-5% optimality gap. Use for large data."
             ),
         )
@@ -89,7 +89,7 @@ def render_step3_solve(domain: DomainConfig) -> None:
         elif "Exact" in solver_label:
             solver_mode = "ilp"
         else:
-            solver_mode = "kmedoids"
+            solver_mode = "heuristic"
 
         c1, c2, c3 = st.columns([2, 1.2, 1], gap="medium")
         with c1:
@@ -117,7 +117,7 @@ def render_step3_solve(domain: DomainConfig) -> None:
                     "building.\n"
                     "• **Robust fairness (p95):** population-weighted 95th "
                     "percentile. Outlier-resistant; recommended for AFAD "
-                    "decision support. (Solved only by K-Medoids.)"
+                    "decision support. (Solved only by Heuristic.)"
                 ),
                 key="opt_objective",
             )
@@ -249,7 +249,7 @@ def render_step3_solve(domain: DomainConfig) -> None:
             st.error(
                 "⚠ The Exact (ILP) solver cannot be used with the P95 "
                 "objective (P95 is non-linear). Set Solver to 'Auto' or "
-                "'Heuristic (K-Medoids)', or change the Objective."
+                "'Heuristic (greedy)', or change the Objective."
             )
 
         # ── Gelişmiş: ILP detayları (sadece ILP veya Auto modunda anlamlı) ──
@@ -261,12 +261,12 @@ def render_step3_solve(domain: DomainConfig) -> None:
                 help=(
                     "**Off (default):** CBC stops at the time limit below and "
                     "returns the best feasible integer solution found (or "
-                    "falls back to K-Medoids, depending on the next option).\n\n"
+                    "falls back to Heuristic, depending on the next option).\n\n"
                     "**On:** No time limit is sent to CBC — the solver runs "
                     "until it proves optimality or infeasibility. Useful for "
                     "academic comparison; **may take hours** on large problems."
                 ),
-                disabled=(solver_mode == "kmedoids"),
+                disabled=(solver_mode == "heuristic"),
             )
             time_limit_sn = st.number_input(
                 "ILP time limit (seconds)",
@@ -277,7 +277,7 @@ def render_step3_solve(domain: DomainConfig) -> None:
                     "problems. Tick 'Unlimited time' above to disable the "
                     "limit entirely. Max here is 86 400 s (24 h)."
                 ),
-                disabled=(solver_mode == "kmedoids") or ilp_unlimited,
+                disabled=(solver_mode == "heuristic") or ilp_unlimited,
             )
             # Two separate kwargs to coz(): time_limit_sn (int seconds) +
             # unlimited (bool). When unlimited=True the time limit is
@@ -289,12 +289,12 @@ def render_step3_solve(domain: DomainConfig) -> None:
                 key="opt_allow_fallback",
                 help=(
                     "**On (default):** if ILP is infeasible or times out, "
-                    "fall back to K-Medoids approximate.\n\n"
+                    "fall back to Heuristic approximate.\n\n"
                     "**Off:** ILP failure raises — useful for academic "
                     "comparison / root-cause analysis. Combine with "
                     "'Unlimited time' above to insist on a proven ILP optimum."
                 ),
-                disabled=(solver_mode == "kmedoids"),
+                disabled=(solver_mode == "heuristic"),
             )
 
             # ── ILP solver engine seçimi (kullanıcıda kurulu olanlar) ──
@@ -327,13 +327,13 @@ def render_step3_solve(domain: DomainConfig) -> None:
                     "dropdown. If you install a new one and don't see it, "
                     "restart Streamlit."
                 ),
-                disabled=(solver_mode == "kmedoids"),
+                disabled=(solver_mode == "heuristic"),
             )
 
-        # ── Gelişmiş: K-Medoids detayları (multi-start + stable seed) ──
+        # ── Gelişmiş: Heuristic detayları (multi-start + stable seed) ──
         # Sprint 2 #14 + #20: heuristic kalitesini artırmak ve tez figürlerini
         # reprodüklenebilir kılmak için iki yeni kontrol.
-        with st.expander("⚙️ Advanced K-Medoids options"):
+        with st.expander("⚙️ Advanced Heuristic options"):
             kmed_n_restarts = st.number_input(
                 "Multi-start restarts (n_restarts)",
                 min_value=1,
@@ -342,10 +342,10 @@ def render_step3_solve(domain: DomainConfig) -> None:
                 step=1,
                 key="opt_kmed_n_restarts",
                 help=(
-                    "How many independent K-Medoids runs to perform. The "
+                    "How many independent Heuristic runs to perform. The "
                     "first restart uses the deterministic greedy initialization "
                     "(backward-compatible); the remaining N−1 restarts seed "
-                    "from a random first medoid. The best (lowest cost) "
+                    "from a random first center. The best (lowest cost) "
                     "result is returned.\n\n"
                     "• **1** (default) — single-shot, fastest, may stick in "
                     "local optima.\n"
@@ -385,12 +385,12 @@ def render_step3_solve(domain: DomainConfig) -> None:
             method_txt = (
                 "ILP (PuLP / CBC)"
                 if n_building <= ILP_THRESHOLD and amac != "min_p95"
-                else "K-Medoids (heuristic)"
+                else "Heuristic (greedy)"
             )
         elif solver_mode == "ilp":
             method_txt = "ILP (PuLP / CBC) — forced"
         else:
-            method_txt = "K-Medoids (heuristic) — forced"
+            method_txt = "Heuristic (greedy) — forced"
 
         st.markdown(
             f'<div style="background:#DBEAFE;border:1px solid #BFDBFE;'
@@ -587,7 +587,7 @@ def render_step3_solve(domain: DomainConfig) -> None:
                     # Fizibilite uyarısı varsa kullanıcıya göster (kapasite/ulaşılabilirlik)
                     if result.fizibilite_uyarisi:
                         st.warning(result.fizibilite_uyarisi)
-                    # ILP→K-Medoids fallback olduysa nedeni göster
+                    # ILP→Heuristic fallback olduysa nedeni göster
                     if result.fallback_nedeni:
                         st.info(f"ℹ Fallback: {result.fallback_nedeni}")
 
@@ -716,12 +716,17 @@ def render_step3_solve(domain: DomainConfig) -> None:
         # ── Compare: Density sensitivity sweep (F5) ─────────────────────────
         # Visualization sprint: AFAD reference yoğunluklarını yan yana
         # karşılaştır. ρ = 1.0 (acil), 1.5 (default), 2.5 (uzun süreli
-        # barınma), 5.0 (geniş park). Aynı p ve hedef altında 4 çözüm.
+        # barınma). Aynı p ve hedef altında 3 çözüm.
+        # NOT: ρ = 5.0 (geniş park) sweep'ten çıkarıldı — bu yoğunlukta
+        # toplam alan kapasitesi talebe çok yaklaşıp problem aşırı sıkışık
+        # (veya infeasible) hale geliyor; timeLimit=unlimited ILP pratikte
+        # takılıyordu. Yüksek-konfor senaryosu ayrıca, daha fazla alan (p)
+        # ile çalıştırılarak incelenebilir.
         # Sonuç: KPI tablosu + bar chart. Tez raporu Figure 5.5.
         with st.expander("📐 Compare densities (ρ sweep — advanced)"):
             st.markdown(
-                "Run the same problem with **four AFAD reference density "
-                "values** (1.0, 1.5, 2.5, 5.0 m²/person) — all with capacity "
+                "Run the same problem with **three AFAD reference density "
+                "values** (1.0, 1.5, 2.5 m²/person) — all with capacity "
                 "ON. The result is a KPI table + bar chart showing how the "
                 "density assumption shifts unreachable count and travel-time "
                 "metrics. Useful for the thesis density-sensitivity figure."
@@ -733,13 +738,13 @@ def render_step3_solve(domain: DomainConfig) -> None:
                     "currently unavailable."
                 )
             if st.button(
-                "🔬 Run density sweep (4 solves)",
+                "🔬 Run density sweep (3 solves)",
                 key="opt_btn_density_sweep",
                 disabled=sweep_disabled or invalid_combo,
                 width="stretch",
             ):
                 st.session_state.opt_logs = []
-                sweep_densities = [1.0, 1.5, 2.5, 5.0]
+                sweep_densities = [1.0, 1.5, 2.5]
                 sweep_progress = st.progress(0.0)
                 sweep_status = st.empty()
                 sweep_results: list = []
@@ -787,6 +792,20 @@ def render_step3_solve(domain: DomainConfig) -> None:
                         "amac": amac,
                         "runs": sweep_results,
                     }
+                    # Step 4 yalnızca opt_result doluyken render edilir.
+                    # Kullanıcı doğrudan sweep çalıştırırsa (önce normal
+                    # optimization yapmadan) opt_result boş kalıp Step 4 hiç
+                    # gösterilmiyordu → sonuçlar hesaplanıp ekrana yansımıyordu.
+                    # Düzeltme: sweep'in temsili çözümünü (varsayılan ρ=1.5,
+                    # yoksa ilk run) opt_result'a yaz ki Step 4 açılsın ve
+                    # density tablosu + chart görünsün.
+                    if not _have("opt_result") and sweep_results:
+                        _rep = next(
+                            (r for r in sweep_results
+                             if abs(r["density"] - 1.5) < 1e-9),
+                            sweep_results[0],
+                        )
+                        st.session_state["opt_result"] = _rep["result"]
                     st.rerun()
                 except Exception as e:
                     sweep_progress.empty()

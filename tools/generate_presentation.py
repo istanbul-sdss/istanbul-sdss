@@ -269,7 +269,7 @@ def build():
         ("System architecture", "A modular, reproducible spatial pipeline"),
         ("Data & classification", "From raw OSM tags to analysis-ready data"),
         ("Optimisation model", "Capacity-aware p-Median formulation"),
-        ("Solver strategy", "Exact ILP and scalable K-Medoids heuristic"),
+        ("Solver strategy", "Exact ILP and scalable greedy heuristic"),
         ("Case study & results", "Kadıköy: ~6,665 buildings, 154 areas"),
         ("Impact & conclusion", "Cost-benefit, SDGs, and future work"),
     ]
@@ -546,7 +546,7 @@ def build():
             "Reports CBC status (Optimal / …).",
             "Optional faster back-ends (HiGHS).",
         ], "Preferred for small instances"),
-        (AMBER, "Heuristic — K-Medoids", "greedy + 1-swap", [
+        (AMBER, "Heuristic — Heuristic", "greedy + 1-swap", [
             "Greedy init + 1-swap local search.",
             "Capacity-aware; fast on large data.",
             "Reports converged vs. iteration-limit.",
@@ -637,7 +637,7 @@ def build():
         text(s, 10.7, yy + 0.08, 1.9, rh, [R(b, 12.5, (WHITE if head else AMBER), bold=True, font=BODY)],
              anchor=MSO_ANCHOR.MIDDLE, align=PP_ALIGN.RIGHT)
     text(s, 0.55, 6.55, 12.2, 0.4,
-         [R("Note — sensitivity to p, capacity ON/OFF, density sweep, and ILP-vs-K-Medoids tables are produced by running the Kadıköy experiments; figures to be inserted here.",
+         [R("Note — sensitivity to p, capacity ON/OFF, density sweep, and ILP-vs-Heuristic tables are produced by running the Kadıköy experiments; figures to be inserted here.",
             10.5, MUTED, italic=True, font=BODY)], line=1.0)
     footer(s, 14, TOTAL, "")
 

@@ -1,14 +1,14 @@
 """
-R5 regresyon: K-Medoids convergence şeffaflığı.
+R5 regresyon: Heuristic convergence şeffaflığı.
 
-Bulgu: K-Medoids 1-swap local search heuristic'i lokal optimuma yakınsamayı
+Bulgu: Heuristic 1-swap local search heuristic'i lokal optimuma yakınsamayı
 matematiksel olarak garanti etmez — MAX_ITER limitine takılabilir. Önceki
 davranış: takılma yalnızca process log'una düşüyor, sonuç KPI'larıyla
 "certified" sonuç arasında fark yok → kullanıcı/jüri sonucun kalitesini
 inceleme zorluğu.
 
-Düzeltme: `PMedianResult.kmedoids_converged` (bool | None) +
-`kmedoids_iterations` (int | None) alanları ile üç durumlu ayrım:
+Düzeltme: `PMedianResult.heuristic_converged` (bool | None) +
+`heuristic_iterations` (int | None) alanları ile üç durumlu ayrım:
   • True  → no improving swap found (certified locally optimal)
   • False → MAX_ITER hit (best-found, NOT certified)
   • None  → ILP path (convergence kavramı farklı — ilp_status taşır)
@@ -28,7 +28,7 @@ import pytest
 from shapely.geometry import Point
 
 from src.optimizer import p_median as pm
-from src.optimizer.p_median import KMEDOIDS_MAX_ITER, coz
+from src.optimizer.p_median import HEURISTIC_MAX_ITER, coz
 
 
 def _make_small_problem(n_bina: int = 6, n_alan: int = 4):
@@ -58,46 +58,46 @@ def _make_small_problem(n_bina: int = 6, n_alan: int = 4):
 
 
 # ── 1. Normal yakınsama → converged=True ──────────────────────────────────
-def test_kmedoids_normal_convergence_reported():
+def test_heuristic_normal_convergence_reported():
     """
     Normal küçük problem: local search 1-swap mahallesinde improving
     bulamadığı ana kadar koşar. Çok hızlı yakınsamalı.
     """
     od, b, t = _make_small_problem(n_bina=6, n_alan=4)
-    sonuc = coz(od, b, t, p=2, kapasite=False, solver="kmedoids")
+    sonuc = coz(od, b, t, p=2, kapasite=False, solver="heuristic")
 
     # Convergence raporlanmalı: True
-    assert sonuc.kmedoids_converged is True, (
+    assert sonuc.heuristic_converged is True, (
         f"Normal problemde converged=True beklenirdi; "
-        f"got {sonuc.kmedoids_converged}"
+        f"got {sonuc.heuristic_converged}"
     )
     # Iteration count makul olmalı (1-30 arası)
-    assert sonuc.kmedoids_iterations is not None
-    assert 1 <= sonuc.kmedoids_iterations < KMEDOIDS_MAX_ITER, (
+    assert sonuc.heuristic_iterations is not None
+    assert 1 <= sonuc.heuristic_iterations < HEURISTIC_MAX_ITER, (
         f"Iteration count beklenmeyen aralıkta: "
-        f"{sonuc.kmedoids_iterations} (MAX_ITER={KMEDOIDS_MAX_ITER})"
+        f"{sonuc.heuristic_iterations} (MAX_ITER={HEURISTIC_MAX_ITER})"
     )
 
 
 # ── 2. MAX_ITER hit → converged=False ─────────────────────────────────────
-def test_kmedoids_max_iter_hit_reported(monkeypatch):
+def test_heuristic_max_iter_hit_reported(monkeypatch):
     """
-    `KMEDOIDS_MAX_ITER` 1'e indirilirse her problem zorlama olarak
+    `HEURISTIC_MAX_ITER` 1'e indirilirse her problem zorlama olarak
     takılı sayılır — local search ilk turda durur. converged=False
     olarak raporlanmalı.
     """
-    monkeypatch.setattr(pm, "KMEDOIDS_MAX_ITER", 1)
+    monkeypatch.setattr(pm, "HEURISTIC_MAX_ITER", 1)
 
     od, b, t = _make_small_problem(n_bina=8, n_alan=5)
-    sonuc = coz(od, b, t, p=3, kapasite=False, solver="kmedoids")
+    sonuc = coz(od, b, t, p=3, kapasite=False, solver="heuristic")
 
     # MAX_ITER=1 ile zorlanmış takılma
-    assert sonuc.kmedoids_converged is False, (
+    assert sonuc.heuristic_converged is False, (
         f"MAX_ITER=1 ile converged=False bekleniyordu; "
-        f"got {sonuc.kmedoids_converged}"
+        f"got {sonuc.heuristic_converged}"
     )
     # Iteration tam olarak MAX_ITER kadar
-    assert sonuc.kmedoids_iterations == 1
+    assert sonuc.heuristic_iterations == 1
 
 
 # ── 3. ILP path → her iki alan None ───────────────────────────────────────
@@ -112,32 +112,32 @@ def test_ilp_path_returns_none_for_convergence():
     # ILP yontemiyle çözüldü
     assert sonuc.yontem == "ILP"
     # Convergence alanları None (K-Med'e özgü)
-    assert sonuc.kmedoids_converged is None, (
-        f"ILP path'te kmedoids_converged=None beklenirdi; "
-        f"got {sonuc.kmedoids_converged}"
+    assert sonuc.heuristic_converged is None, (
+        f"ILP path'te heuristic_converged=None beklenirdi; "
+        f"got {sonuc.heuristic_converged}"
     )
-    assert sonuc.kmedoids_iterations is None
+    assert sonuc.heuristic_iterations is None
     # Bunun yerine ilp_status doldurulmuş olmalı
     assert sonuc.ilp_status is not None
 
 
 # ── 4. p == n_alan edge case → anında yakınsama ──────────────────────────
-def test_kmedoids_p_equals_n_alan_converges_immediately():
+def test_heuristic_p_equals_n_alan_converges_immediately():
     """
     Eğer tüm aday alanları açıyorsak swap için aday yok → local search
     hemen converge eder (zaten 0 iterasyon ile). Edge case.
     """
     od, b, t = _make_small_problem(n_bina=5, n_alan=3)
     # p = n_alan
-    sonuc = coz(od, b, t, p=3, kapasite=False, solver="kmedoids")
+    sonuc = coz(od, b, t, p=3, kapasite=False, solver="heuristic")
 
-    assert sonuc.kmedoids_converged is True, (
+    assert sonuc.heuristic_converged is True, (
         "p==n_alan edge case'inde immediate convergence beklenirdi"
     )
     # 1 turda gelisim=False olmalı (swap aday kümesi boş)
-    assert sonuc.kmedoids_iterations is not None
-    assert sonuc.kmedoids_iterations <= 2, (
-        f"p==n_alan'da {sonuc.kmedoids_iterations} iter — beklenmedik kadar fazla"
+    assert sonuc.heuristic_iterations is not None
+    assert sonuc.heuristic_iterations <= 2, (
+        f"p==n_alan'da {sonuc.heuristic_iterations} iter — beklenmedik kadar fazla"
     )
 
 
@@ -151,12 +151,12 @@ def test_min_p95_objective_reports_convergence():
     sonuc = coz(od, b, t, p=2, kapasite=False, amac="min_p95", solver="auto")
 
     # auto + min_p95 → K-Med'e gider
-    assert sonuc.yontem == "K-Medoids"
+    assert sonuc.yontem == "Heuristic"
     # Convergence raporlanmalı
-    assert sonuc.kmedoids_converged is not None, (
-        "K-Med yolundan dönen sonuç kmedoids_converged'ı set etmeli"
+    assert sonuc.heuristic_converged is not None, (
+        "K-Med yolundan dönen sonuç heuristic_converged'ı set etmeli"
     )
-    assert sonuc.kmedoids_iterations is not None
+    assert sonuc.heuristic_iterations is not None
 
 
 # ── 6. Dataclass field default'ları geriye uyumlu ─────────────────────────
@@ -184,5 +184,5 @@ def test_pmedian_result_default_fields():
         nufus_kapsama_30dk_pct=0.0,
     )
     # Default'lar None
-    assert r.kmedoids_converged is None
-    assert r.kmedoids_iterations is None
+    assert r.heuristic_converged is None
+    assert r.heuristic_iterations is None

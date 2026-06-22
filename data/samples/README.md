@@ -15,7 +15,7 @@ Bu klasördeki dosyalar, Veri Çıkartma aracını çalıştırmadan
 Beklenen sonuç (default ayarlarla):
 - Toplam tahmini nüfus: ~244,000 kişi
 - Toplam toplanma kapasitesi: ~656,000 kişi (AFAD 1.5 m²/kişi)
-- ILP ile çözülebilir (≤ 5,000 bina değil ama K-Medoids fallback ile pratik)
+- ILP ile çözülebilir (≤ 5,000 bina değil ama Heuristic fallback ile pratik)
 
 ## Kullanım
 

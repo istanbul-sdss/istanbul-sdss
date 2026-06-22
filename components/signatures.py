@@ -54,7 +54,7 @@ class ResultSignature:
     p: int
     amac: str             # "min_sum" | "min_max" | "min_p95"
     capacity: bool
-    solver_mode: str      # "auto" | "ilp" | "kmedoids"
+    solver_mode: str      # "auto" | "ilp" | "heuristic"
     m2_per_person: float | None  # None when capacity OFF
     n_restarts: int = 1
     random_state: int | None = None
